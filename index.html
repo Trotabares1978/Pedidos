@@ -33,6 +33,18 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 <button class="submit" id="send" disabled>📲 Enviar pedido</button></section>
 </div>
 <script>
+var mvFallbackQty=Array(17).fill(0);
+var mvFallbackPrices=[13000,12000,15000,12000,8000,7000,13000,10000,12000,18000,36000,18000,36000,36000,31000,35000,45000];
+function change(i,d){
+  mvFallbackQty[i]=Math.max(0,mvFallbackQty[i]+d);
+  var q=document.getElementById("qty-"+i);
+  if(q)q.textContent=mvFallbackQty[i];
+  var total=mvFallbackQty.reduce(function(s,n,j){return s+n*mvFallbackPrices[j]},0);
+  var t=document.getElementById("total");
+  if(t)t.textContent=total.toLocaleString("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0});
+}
+</script>
+<script>
 const CONFIG={whatsappNumber:"5492214775865",supabaseUrl:"https://blnoenkmshrybsqpsvtx.supabase.co",supabaseKey:"sb_publishable_OmZ_iwMzQNUDeyTJXOjBqw_au5UgLN8"};
 let supabase=null;
 function getSupabase(){
