@@ -161,32 +161,7 @@ document.getElementById("send").addEventListener("click",async function(){
     window.location.href="https://wa.me/"+number+"?text="+encodeURIComponent(msg);
     return;
   } catch(e) { alert("No se pudo enviar el pedido. Revisá tu conexión e intentá nuevamente."); button.disabled=false; button.textContent="📲 Enviar pedido"; return; }
-  /* legacy handler disabled */
-  client.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle().then(async function(result){
-    if(result.error||!result.data){
-      alert("La lista de pedidos para este sábado se encuentra cerrada. Mil disculpas");
-      button.textContent="📲 Enviar pedido";
-      await refreshRepartoStatus();
-      return;
-    }
-    var items=products.map(function(p,i){return state[i]?{name:p.name,quantity:state[i],unit_price:p.price,subtotal:p.price*state[i]}:null}).filter(Boolean);
-    var insert=await client.from("pedidos").insert({
-      reparto_id:result.data.id,
-      customer_name:name,
-      address:address,
-      phone:phone,
-      payment_method:payment,
-      items:items,
-      total:total
-    });
-    if(insert.error){
-      alert("No se pudo guardar el pedido. No se abrió WhatsApp para evitar perderlo.");
-      button.disabled=false;
-      button.textContent="📲 Enviar pedido";
-      return;
-    }
-    window.location.href="https://wa.me/"+number+"?text="+encodeURIComponent(msg);
-  });
+
 
 });
 render();
