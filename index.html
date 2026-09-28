@@ -79,6 +79,21 @@ function getNextSaturdayLabel(){
 function updateDeliveryDate(){
   document.getElementById("deliveryDate").textContent=getNextSaturdayLabel();
 }
+async function refreshRepartoStatus(){
+  var result=await supabase.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  var closed=!result.data;
+  var status=document.getElementById("statusText");
+  var formCards=document.querySelectorAll(".card");
+  if(closed){
+    status.textContent="La lista de pedidos para este sábado se encuentra cerrada. Mil disculpas";
+    document.getElementById("deliveryDate").textContent="";
+    formCards.forEach(function(card){card.style.display="none"});
+  }else{
+    status.textContent="Hacé tu pedido para el próximo reparto.";
+    formCards.forEach(function(card){card.style.display=""});
+    updateDeliveryDate();
+  }
+}
 document.getElementById("send").addEventListener("click",function(){
   var name=document.getElementById("name").value.trim(),address=document.getElementById("address").value.trim(),phone=document.getElementById("phone").value.trim(),payment=document.querySelector('input[name="payment"]:checked').value;
   var lines=products.map(function(p,i){return state[i]?"• "+p.name+" x"+state[i]+" — "+money(p.price*state[i]):null}).filter(Boolean);
@@ -119,6 +134,7 @@ document.getElementById("send").addEventListener("click",function(){
 });
 render();
 updateDeliveryDate();
+refreshRepartoStatus();
 </script>
 <!-- Publicación forzada -->
 </body></html>
