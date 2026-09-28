@@ -31,4 +31,6 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-# catálogo visible actualizado
+# despliegue forzado — versión real del formulario de pedidos
+
+# sincronización Pages 2026-09-28
