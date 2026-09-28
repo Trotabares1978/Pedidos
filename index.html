@@ -30,7 +30,7 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 <label class="pay"><input type="radio" name="payment" value="Efectivo"><span><strong>Efectivo al recibir</strong><small>Pagás cuando recibís tu pedido.</small></span></label>
 <label class="pay"><input type="radio" name="payment" value="Otro"><span><strong>Otro medio de pago</strong><small>Lo coordinamos por WhatsApp.</small></span></label>
 </div><p class="note"><strong>💙 Cuenta DNI:</strong> de lunes a viernes hay una promoción vigente de hasta 20% de reintegro en comercios adheridos, con tope semanal. El beneficio depende de las condiciones del Banco Provincia y de la adhesión del comercio. <a href="https://www.bancoprovincia.com.ar/cuentadni/buscadores/comerciosdebarrio" target="_blank" rel="noopener">Ver condiciones</a>.</p><p class="note">El pedido llegará por WhatsApp con tus datos, productos, total y medio de pago.</p>
-<p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button" onclick="window.location.href='https://wa.me/5492214775865?text=Prueba%20Manos%20Verdes';return false;">📲 Enviar pedido</button></section>
+<p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button" onclick="sendOrderDirect();return false;">📲 Enviar pedido</button></section>
 </div>
 <script>
 var mvFallbackQty=Array(17).fill(0);
@@ -94,6 +94,37 @@ function render(){
 }
 function change(i,d){state[i]=Math.max(0,state[i]+d);
 function sendOrderFresh(){ alert("BOTON_OK"); }
+function sendOrderDirect(){
+  var name=document.getElementById("name").value.trim();
+  var address=document.getElementById("address").value.trim();
+  var phone=document.getElementById("phone").value.trim();
+  var paymentEl=document.querySelector('input[name="payment"]:checked');
+  if(!name||!address||!phone){alert("Completá nombre, dirección y WhatsApp.");return;}
+  if(!paymentEl){alert("Seleccioná un medio de pago.");return;}
+  var lines=[],total=0,items=[];
+  for(var i=0;i<products.length;i++){
+    var qEl=document.getElementById("qty-"+i);
+    var q=qEl?parseInt(qEl.textContent,10)||0:0;
+    if(q>0){
+      var sub=q*products[i].price;
+      total+=sub;
+      lines.push("• "+products[i].name+" x"+q+" — "+money(sub));
+      items.push({name:products[i].name,quantity:q,unit_price:products[i].price,subtotal:sub});
+    }
+  }
+  if(!items.length){alert("Agregá al menos un producto al pedido.");return;}
+  var customerNumber=normalizeWhatsApp(phone);
+  var msg=["🌱 *NUEVO PEDIDO — MANOS VERDES*","","👤 Cliente: "+name,"📍 Dirección: "+address,"📱 WhatsApp: "+phone,"🔗 Contactar al cliente: https://wa.me/"+customerNumber,"","🛒 *Pedido:*"].concat(lines,["","💰 *Total: "+money(total)+"*","💳 Medio de pago: "+paymentEl.value,"","🚚 Reparto: "+getNextSaturdayLabel()]).join("\n");
+  var waUrl="https://wa.me/"+CONFIG.whatsappNumber.replace(/\D/g,"")+"?text="+encodeURIComponent(msg);
+  window.location.href=waUrl;
+  var client=getSupabase();
+  if(client){
+    client.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle().then(function(result){
+      if(result.error||!result.data)return;
+      return client.from("pedidos").insert({reparto_id:result.data.id,customer_name:name,address:address,phone:phone,payment_method:paymentEl.value,items:items,total:total});
+    }).catch(function(){});
+  }
+}
 render();update()}
 function update(){var total=state.reduce(function(s,q,i){return s+q*products[i].price},0);document.getElementById("total").textContent=money(total);var ok=document.getElementById("name").value.trim()&&document.getElementById("address").value.trim()&&document.getElementById("phone").value.trim()&&state.some(Boolean)&&document.querySelector('input[name="payment"]:checked');document.getElementById("send").disabled=false}
 ["name","address","phone"].forEach(function(id){document.getElementById(id).addEventListener("input",update)});
