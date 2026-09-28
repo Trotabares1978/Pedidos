@@ -30,7 +30,7 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 <label class="pay"><input type="radio" name="payment" value="Efectivo"><span><strong>Efectivo al recibir</strong><small>Pagás cuando recibís tu pedido.</small></span></label>
 <label class="pay"><input type="radio" name="payment" value="Otro"><span><strong>Otro medio de pago</strong><small>Lo coordinamos por WhatsApp.</small></span></label>
 </div><p class="note"><strong>💙 Cuenta DNI:</strong> de lunes a viernes hay una promoción vigente de hasta 20% de reintegro en comercios adheridos, con tope semanal. El beneficio depende de las condiciones del Banco Provincia y de la adhesión del comercio. <a href="https://www.bancoprovincia.com.ar/cuentadni/buscadores/comerciosdebarrio" target="_blank" rel="noopener">Ver condiciones</a>.</p><p class="note">El pedido llegará por WhatsApp con tus datos, productos, total y medio de pago.</p>
-<p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button" onclick="sendOrderFresh(event)">📲 Enviar pedido</button></section>
+<p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button">📲 Enviar pedido</button></section>
 </div>
 <script>
 var mvFallbackQty=Array(17).fill(0);
@@ -93,44 +93,12 @@ function render(){
   update();
 }
 function change(i,d){state[i]=Math.max(0,state[i]+d);
-function sendOrderFresh(event){
-  try{
-    var name=document.getElementById("name").value.trim();
-    var address=document.getElementById("address").value.trim();
-    var phone=document.getElementById("phone").value.trim();
-    var paymentEl=document.querySelector('input[name="payment"]:checked');
-    var quantities=[];
-    for(var i=0;i<products.length;i++){
-      var q=document.getElementById("qty-"+i);
-      quantities[i]=q?Math.max(0,parseInt(q.textContent,10)||0):0;
-    }
-    if(!name||!address||!phone){alert("Completá nombre, dirección y WhatsApp.");return false;}
-    if(!paymentEl){alert("Seleccioná un medio de pago.");return false;}
-    if(!quantities.some(function(q){return q>0;})){alert("Agregá al menos un producto al pedido.");return false;}
-    var payment=paymentEl.value;
-    var total=quantities.reduce(function(sum,q,i){return sum+q*products[i].price;},0);
-    var lines=[];
-    quantities.forEach(function(q,i){if(q>0)lines.push("• "+products[i].name+" x"+q+" — "+money(products[i].price*q));});
-    var customerNumber=normalizeWhatsApp(phone);
-    var msg=["🌱 *NUEVO PEDIDO — MANOS VERDES*","", "👤 Cliente: "+name,"📍 Dirección: "+address,"📱 WhatsApp: "+phone,"🔗 Contactar al cliente: https://wa.me/"+customerNumber,"","🛒 *Pedido:*"].concat(lines,["","💰 *Total: "+money(total)+"*","💳 Medio de pago: "+payment,"","🚚 Reparto: "+getNextSaturdayLabel()]).join("\n");
-    var waUrl="https://wa.me/"+CONFIG.whatsappNumber.replace(/\\D/g,"")+"?text="+encodeURIComponent(msg);
-    var waWindow=window.open(waUrl,"_blank");
-    if(!waWindow){window.location.href=waUrl;}
-    var client=getSupabase();
-    if(client){
-      client.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle().then(function(result){
-        if(result.error||!result.data)return;
-        var items=products.map(function(p,i){return quantities[i]?{name:p.name,quantity:quantities[i],unit_price:p.price,subtotal:p.price*quantities[i]}:null}).filter(Boolean);
-        return client.from("pedidos").insert({reparto_id:result.data.id,customer_name:name,address:address,phone:phone,payment_method:payment,items:items,total:total});
-      }).catch(function(){});
-    }
-    return false;
-  }catch(err){alert("No se pudo preparar el pedido. Intentá nuevamente.");return false;}
-}
+function sendOrderFresh(){ alert("BOTON_OK"); }
 render();update()}
 function update(){var total=state.reduce(function(s,q,i){return s+q*products[i].price},0);document.getElementById("total").textContent=money(total);var ok=document.getElementById("name").value.trim()&&document.getElementById("address").value.trim()&&document.getElementById("phone").value.trim()&&state.some(Boolean)&&document.querySelector('input[name="payment"]:checked');document.getElementById("send").disabled=false}
 ["name","address","phone"].forEach(function(id){document.getElementById(id).addEventListener("input",update)});
 document.querySelectorAll('input[name="payment"]').forEach(function(x){x.addEventListener("change",update)});
+document.getElementById("sendFresh").addEventListener("click",sendOrderFresh);
 function normalizeWhatsApp(raw){
   var digits=raw.replace(/\D/g,"");
   if(digits.indexOf("54")===0)return digits;
