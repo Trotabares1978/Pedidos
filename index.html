@@ -37,6 +37,7 @@ var mvFallbackQty=Array(17).fill(0);
 var mvFallbackPrices=[13000,12000,15000,12000,8000,7000,13000,10000,12000,18000,36000,18000,36000,36000,31000,35000,45000];
 function change(i,d){
   mvFallbackQty[i]=Math.max(0,mvFallbackQty[i]+d);
+  if(typeof state!=="undefined") state[i]=mvFallbackQty[i];
   var q=document.getElementById("qty-"+i);
   if(q)q.textContent=mvFallbackQty[i];
   var total=mvFallbackQty.reduce(function(s,n,j){return s+n*mvFallbackPrices[j]},0);
