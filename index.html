@@ -34,7 +34,11 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 </div>
 <script>
 const CONFIG={whatsappNumber:"5492214775865",supabaseUrl:"https://blnoenkmshrybsqpsvtx.supabase.co",supabaseKey:"sb_publishable_OmZ_iwMzQNUDeyTJXOjBqw_au5UgLN8"};
-const supabase=window.supabase.createClient(CONFIG.supabaseUrl,CONFIG.supabaseKey);
+let supabase=null;
+function getSupabase(){
+  if(!supabase && window.supabase){supabase=window.supabase.createClient(CONFIG.supabaseUrl,CONFIG.supabaseKey)}
+  return supabase;
+}
 const products=[
 {name:"Bolsón n°1",price:13000,detail:"Verduras agroecológicas"},
 {name:"Bolsón n°2",price:12000,detail:"Verduras agroecológicas"},
@@ -97,7 +101,9 @@ function updateDeliveryDate(){
   document.getElementById("deliveryDate").textContent=getNextSaturdayLabel();
 }
 async function refreshRepartoStatus(){
-  var result=await supabase.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  var client=getSupabase();
+  if(!client)return;
+  var result=await client.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle();
   var closed=!result.data;
   var status=document.getElementById("statusText");
   var formCards=document.querySelectorAll(".card");
@@ -122,7 +128,14 @@ document.getElementById("send").addEventListener("click",function(){
   var button=document.getElementById("send");
   button.disabled=true;
   button.textContent="⏳ Guardando pedido...";
-  supabase.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle().then(async function(result){
+  var client=getSupabase();
+  if(!client){
+    alert("No se pudo conectar con el sistema de pedidos. Revisá tu conexión e intentá nuevamente.");
+    button.disabled=false;
+    button.textContent="📲 Enviar pedido";
+    return;
+  }
+  client.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle().then(async function(result){
     if(result.error||!result.data){
       alert("La lista de pedidos para este sábado se encuentra cerrada. Mil disculpas");
       button.textContent="📲 Enviar pedido";
@@ -130,7 +143,7 @@ document.getElementById("send").addEventListener("click",function(){
       return;
     }
     var items=products.map(function(p,i){return state[i]?{name:p.name,quantity:state[i],unit_price:p.price,subtotal:p.price*state[i]}:null}).filter(Boolean);
-    var insert=await supabase.from("pedidos").insert({
+    var insert=await client.from("pedidos").insert({
       reparto_id:result.data.id,
       customer_name:name,
       address:address,
