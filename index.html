@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#2e7d32"><title>Pedidos | Manos Verdes</title>
+<style>
+:root{--g:#2e7d32;--g2:#43a047;--bg:#f7f4e8;--ink:#203020;--muted:#657065;--line:#dfe7df}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#eef7ed,#fff 45%);color:var(--ink)}
+.wrap{max-width:720px;margin:auto;padding:18px 14px 42px}.hero{background:linear-gradient(135deg,#1b5e20,#43a047);color:#fff;border-radius:24px;padding:26px 22px;box-shadow:0 12px 35px #1b5e2022}.hero h1{margin:0 0 6px;font-size:32px}.hero p{margin:0;opacity:.92}.badge{display:inline-block;margin-top:14px;padding:7px 11px;border-radius:999px;background:#ffffff22;font-size:13px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:14px;box-shadow:0 6px 20px #183d180b}.card h2{font-size:19px;margin:0 0 14px}
+label{display:block;font-weight:700;font-size:14px;margin:12px 0 6px}.field{width:100%;padding:12px 13px;border:1px solid #cfd8cf;border-radius:12px;font:inherit;background:#fff}.field:focus{outline:2px solid #a5d6a7;border-color:var(--g)}
+.products{display:grid;gap:10px}.product{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:13px}.product strong{display:block}.product small{color:var(--muted)}.qty{display:flex;align-items:center;gap:8px}.qty button{width:34px;height:34px;border:0;border-radius:10px;background:#e8f5e9;color:#1b5e20;font-size:20px;font-weight:800}.qty span{min-width:24px;text-align:center;font-weight:800}
+.total{display:flex;justify-content:space-between;align-items:center;font-size:21px;font-weight:900;padding-top:15px;margin-top:14px;border-top:1px dashed #cfd8cf}.payment{display:grid;gap:9px}.pay{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);padding:12px;border-radius:12px}.pay input{margin-top:3px}.pay strong{display:block}.pay small{color:var(--muted)}
+button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15px;background:#25d366;color:#fff;font-weight:900;font-size:17px;box-shadow:0 8px 20px #25d36633}.submit:disabled{opacity:.45}.note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px}
+@media(min-width:600px){.products{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero"><h1>🌱 Manos Verdes</h1><p>Hacé tu pedido para el próximo reparto.</p><span class="badge">🚚 Entrega gratuita · viernes 14:00 a 17:00</span></header>
+<section class="card"><h2>1. Tus datos</h2>
+<label for="name">Nombre y apellido</label><input class="field" id="name" autocomplete="name" placeholder="Ej.: Juan Pérez">
+<label for="address">Dirección de entrega</label><input class="field" id="address" autocomplete="street-address" placeholder="Calle y número, localidad">
+<label for="phone">WhatsApp</label><input class="field" id="phone" inputmode="tel" autocomplete="tel" placeholder="Ej.: 221..."></section>
+<section class="card"><h2>2. Elegí tus productos</h2><div class="products" id="products"></div><div class="total"><span>Total</span><span id="total">$0</span></div></section>
+<section class="card"><h2>3. Medio de pago</h2><div class="payment">
+<label class="pay"><input type="radio" name="payment" value="Cuenta DNI"><span><strong>Cuenta DNI</strong><small>Al cerrar el pedido te envío el link de pago por WhatsApp.</small></span></label>
+<label class="pay"><input type="radio" name="payment" value="Transferencia"><span><strong>Transferencia bancaria</strong><small>Te paso los datos por WhatsApp.</small></span></label>
+<label class="pay"><input type="radio" name="payment" value="Efectivo"><span><strong>Efectivo al recibir</strong><small>Pagás cuando recibís tu pedido.</small></span></label>
+<label class="pay"><input type="radio" name="payment" value="Otro"><span><strong>Otro medio de pago</strong><small>Lo coordinamos por WhatsApp.</small></span></label>
+</div><p class="note">Al tocar “Enviar pedido” se abrirá WhatsApp con el pedido completo listo para enviarlo.</p>
+<button class="submit" id="send" disabled>📲 Enviar pedido por WhatsApp</button></section>
+</div>
+<script>
+const CONFIG={whatsappNumber:"WHATSAPP_NUMBER_AQUI"};
+const products=[
+{name:"Bolson N°1",price:12000,detail:"Verduras agroecológicas"},
+{name:"Bolson N°2",price:10000,detail:"Verduras agroecológicas"},
+{name:"Bolson N°3 · Complemento Familiar",price:15000,detail:"Verduras agroecológicas"},
+{name:"Bolson de frutas",price:10000,detail:"Frutas de estación"},
+{name:"Miel",price:8000,detail:"Miel"},
+{name:"Promo 1 + 2 + Fruta",price:31000,detail:"Los tres productos juntos"},
+{name:"Promo Los 3 de verdura",price:35000,detail:"Bolsones 1 + 2 + 3"},
+{name:"Promo Los 4 bolsones",price:45000,detail:"Todos los bolsones"}];
+const state=products.map(function(){return 0});
+const money=function(n){return n.toLocaleString("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0})};
+function render(){var box=document.getElementById("products");box.innerHTML=products.map(function(p,i){return '<div class="product"><div><strong>'+p.name+'</strong><small>'+p.detail+' · '+money(p.price)+'</small></div><div class="qty"><button type="button" onclick="change('+i+',-1)">−</button><span>'+state[i]+'</span><button type="button" onclick="change('+i+',1)">+</button></div></div>'}).join("");update()}
+function change(i,d){state[i]=Math.max(0,state[i]+d);render()}
+function update(){var total=state.reduce(function(s,q,i){return s+q*products[i].price},0);document.getElementById("total").textContent=money(total);var ok=document.getElementById("name").value.trim()&&document.getElementById("address").value.trim()&&document.getElementById("phone").value.trim()&&state.some(Boolean)&&document.querySelector('input[name="payment"]:checked');document.getElementById("send").disabled=!ok}
+["name","address","phone"].forEach(function(id){document.getElementById(id).addEventListener("input",update)});
+document.querySelectorAll('input[name="payment"]').forEach(function(x){x.addEventListener("change",update)});
+document.getElementById("send").addEventListener("click",function(){
+var name=document.getElementById("name").value.trim(),address=document.getElementById("address").value.trim(),phone=document.getElementById("phone").value.trim(),payment=document.querySelector('input[name="payment"]:checked').value;
+var lines=products.map(function(p,i){return state[i]?"• "+p.name+" x"+state[i]+" — "+money(p.price*state[i]):null}).filter(Boolean);
+var total=state.reduce(function(s,q,i){return s+q*products[i].price},0);
+var msg=["🌱 *NUEVO PEDIDO — MANOS VERDES*","", "👤 Cliente: "+name,"📍 Dirección: "+address,"📱 WhatsApp: "+phone,"","🛒 *Pedido:*"].concat(lines,["","💰 *Total: "+money(total)+"*","💳 Medio de pago: "+payment,"","🚚 Reparto: viernes 14:00 a 17:00"]).join("\n");
+var number=CONFIG.whatsappNumber.replace(/\D/g,"");if(number==="WHATSAPP_NUMBER_AQUI"){alert("Falta configurar el número de WhatsApp que recibe los pedidos.");return}
+window.location.href="https://wa.me/"+number+"?text="+encodeURIComponent(msg);
+});
+render();
+</script>
+</body></html>
