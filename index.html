@@ -33,27 +33,12 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 <p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button" onclick="sendOrderDirect();return false;">📲 Enviar pedido</button></section>
 </div>
 <script>
-var mvFallbackQty=Array(17).fill(0);
-var mvFallbackPrices=[13000,12000,15000,12000,8000,7000,13000,10000,12000,18000,36000,18000,36000,36000,31000,35000,45000];
-function change(i,d){
-  mvFallbackQty[i]=Math.max(0,mvFallbackQty[i]+d);
-  if(typeof state!=="undefined") state[i]=mvFallbackQty[i];
-  var q=document.getElementById("qty-"+i);
-  if(q)q.textContent=mvFallbackQty[i];
-  if(typeof state!=="undefined"){state[i]=mvFallbackQty[i];}
-  if(typeof update==="function")update();
-  var total=mvFallbackQty.reduce(function(s,n,j){return s+n*mvFallbackPrices[j]},0);
-  var t=document.getElementById("total");
-  if(t)t.textContent=total.toLocaleString("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0});
-}
-</script>
-<script>
-const CONFIG={whatsappNumber:"5492214775865",supabaseUrl:"https://blnoenkmshrybsqpsvtx.supabase.co",supabaseKey:"sb_publishable_OmZ_iwMzQNUDeyTJXOjBqw_au5UgLN8"};
-let supabase=null;
-function getSupabase(){
-  if(!supabase && window.supabase){supabase=window.supabase.createClient(CONFIG.supabaseUrl,CONFIG.supabaseKey)}
-  return supabase;
-}
+const CONFIG={
+  whatsappNumber:"5492214775865",
+  supabaseUrl:"https://blnoenkmshrybsqpsvtx.supabase.co",
+  supabaseKey:"sb_publishable_OmZ_iwMzQNUDeyTJXOjBqw_au5UgLN8"
+};
+let supabaseClient=null;
 const products=[
 {name:"Bolsón n°1",price:13000,detail:"Verduras agroecológicas"},
 {name:"Bolsón n°2",price:12000,detail:"Verduras agroecológicas"},
@@ -64,111 +49,233 @@ const products=[
 {name:"Huevos comunes x 2",price:13000,detail:"Huevos"},
 {name:"Huevos Caseros",price:10000,detail:"Huevos"},
 {name:"Huevos Agroecológicos",price:12000,detail:"Huevos"},
-{name:"Cremoso Cremac x 2kg",price:18000,detail:"Queso"},
-{name:"Cremoso Cremac x 4kg",price:36000,detail:"Queso"},
-{name:"Sardo Fresco x 1,5kg",price:18000,detail:"Queso"},
-{name:"Sardo Fresco x 3kg",price:36000,detail:"Queso"},
-{name:"Sardo Cremac x 1,8kg",price:36000,detail:"Queso"},
+{name:"Cremoso Cremac · Media horma",price:18000,detail:"Queso"},
+{name:"Cremoso Cremac · Una horma",price:36000,detail:"Queso"},
+{name:"Sardo Fresco · Media horma",price:18000,detail:"Queso"},
+{name:"Sardo Fresco · Una horma",price:36000,detail:"Queso"},
+{name:"Sardo Cremac · Media horma",price:36000,detail:"Queso"},
 {name:"Promo 1-2-Fruta",price:31000,detail:"Bolsón 1 + Bolsón 2 + Frutas"},
 {name:"Promo Los 3 de verdura",price:35000,detail:"Bolsones 1 + 2 + 3"},
-{name:"Promo Los 4 bolsones",price:45000,detail:"Todos los bolsones"}];
-const state=products.map(function(){return 0});
-const money=function(n){return n.toLocaleString("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0})};
-function render(){
-  var box=document.getElementById("products");
-  box.innerHTML="";
-  products.forEach(function(p,i){
-    var item=document.createElement("div"); item.className="product";
-    var info=document.createElement("div");
-    var name=document.createElement("strong"); name.textContent=p.name;
-    var small=document.createElement("small"); small.textContent=p.detail+" · "+money(p.price);
-    info.appendChild(name); info.appendChild(small);
-    var qty=document.createElement("div"); qty.className="qty";
-    var minus=document.createElement("button"); minus.type="button"; minus.textContent="−"; minus.onclick=function(){change(i,-1)};
-    var count=document.createElement("span"); count.textContent=state[i];
-    var plus=document.createElement("button"); plus.type="button"; plus.textContent="+"; plus.onclick=function(){change(i,1)};
-    qty.appendChild(minus); qty.appendChild(count); qty.appendChild(plus);
-    item.appendChild(info); item.appendChild(qty); box.appendChild(item);
-  });
+{name:"Promo Los 4 bolsones",price:45000,detail:"Todos los bolsones"}
+];
+const state=products.map(()=>0);
+const money=n=>n.toLocaleString("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0});
+
+function getSupabase(){
+  if(!supabaseClient && window.supabase){
+    supabaseClient=window.supabase.createClient(CONFIG.supabaseUrl,CONFIG.supabaseKey);
+  }
+  return supabaseClient;
+}
+
+function change(i,d){
+  state[i]=Math.max(0,state[i]+d);
+  const q=document.getElementById("qty-"+i);
+  if(q) q.textContent=state[i];
   update();
 }
-function change(i,d){state[i]=Math.max(0,state[i]+d);
-function sendOrderFresh(){ alert("BOTON_OK"); }
-function sendOrderDirect(){
-  var name=document.getElementById("name").value.trim();
-  var address=document.getElementById("address").value.trim();
-  var phone=document.getElementById("phone").value.trim();
-  var paymentEl=document.querySelector('input[name="payment"]:checked');
-  if(!name||!address||!phone){alert("Completá nombre, dirección y WhatsApp.");return;}
-  if(!paymentEl){alert("Seleccioná un medio de pago.");return;}
-  var lines=[],total=0,items=[];
-  for(var i=0;i<products.length;i++){
-    var qEl=document.getElementById("qty-"+i);
-    var q=qEl?parseInt(qEl.textContent,10)||0:0;
-    if(q>0){
-      var sub=q*products[i].price;
-      total+=sub;
-      lines.push("• "+products[i].name+" x"+q+" — "+money(sub));
-      items.push({name:products[i].name,quantity:q,unit_price:products[i].price,subtotal:sub});
-    }
-  }
-  if(!items.length){alert("Agregá al menos un producto al pedido.");return;}
-  var customerNumber=normalizeWhatsApp(phone);
-  var msg=["🌱 *NUEVO PEDIDO — MANOS VERDES*","","👤 Cliente: "+name,"📍 Dirección: "+address,"📱 WhatsApp: "+phone,"🔗 Contactar al cliente: https://wa.me/"+customerNumber,"","🛒 *Pedido:*"].concat(lines,["","💰 *Total: "+money(total)+"*","💳 Medio de pago: "+paymentEl.value,"","🚚 Reparto: "+getNextSaturdayLabel()]).join("\n");
-  var waUrl="https://wa.me/"+CONFIG.whatsappNumber.replace(/\D/g,"")+"?text="+encodeURIComponent(msg);
-  window.location.href=waUrl;
-  var client=getSupabase();
-  if(client){
-    client.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle().then(function(result){
-      if(result.error||!result.data)return;
-      return client.from("pedidos").insert({reparto_id:result.data.id,customer_name:name,address:address,phone:phone,payment_method:paymentEl.value,items:items,total:total});
-    }).catch(function(){});
-  }
+
+function update(){
+  const total=state.reduce((sum,q,i)=>sum+q*products[i].price,0);
+  const totalEl=document.getElementById("total");
+  if(totalEl) totalEl.textContent=money(total);
 }
-render();update()}
-function update(){var total=state.reduce(function(s,q,i){return s+q*products[i].price},0);document.getElementById("total").textContent=money(total);var ok=document.getElementById("name").value.trim()&&document.getElementById("address").value.trim()&&document.getElementById("phone").value.trim()&&state.some(Boolean)&&document.querySelector('input[name="payment"]:checked');document.getElementById("send").disabled=false}
-["name","address","phone"].forEach(function(id){document.getElementById(id).addEventListener("input",update)});
-document.querySelectorAll('input[name="payment"]').forEach(function(x){x.addEventListener("change",update)});
-document.getElementById("sendFresh").addEventListener("click",sendOrderFresh);
+
 function normalizeWhatsApp(raw){
-  var digits=raw.replace(/\D/g,"");
+  let digits=(raw||"").replace(/\D/g,"");
   if(digits.indexOf("54")===0)return digits;
   if(digits.indexOf("0")===0)digits=digits.slice(1);
   if(digits.indexOf("15")===0)digits=digits.slice(2);
   return "54"+digits;
 }
+
 function getNextSaturday(){
-  var d=new Date(),day=d.getDay(),add=(6-day+7)%7;
+  const d=new Date();
+  const day=d.getDay();
+  let add=(6-day+7)%7;
   if(add===0)add=7;
   d.setDate(d.getDate()+add);
   return d;
 }
+
 function getNextSaturdayLabel(){
   return getNextSaturday().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
 }
-function updateDeliveryDate(){
-  document.getElementById("deliveryDate").textContent=getNextSaturdayLabel();
+
+function collectOrder(){
+  const name=document.getElementById("name").value.trim();
+  const address=document.getElementById("address").value.trim();
+  const phone=document.getElementById("phone").value.trim();
+  const paymentEl=document.querySelector('input[name="payment"]:checked');
+  if(!name||!address||!phone){
+    alert("Completá nombre, dirección y WhatsApp.");
+    return null;
+  }
+  if(!paymentEl){
+    alert("Seleccioná un medio de pago.");
+    return null;
+  }
+  const items=[];
+  const lines=[];
+  let total=0;
+  for(let i=0;i<products.length;i++){
+    const q=state[i];
+    if(q>0){
+      const subtotal=q*products[i].price;
+      total+=subtotal;
+      lines.push("• "+products[i].name+" x"+q+" — "+money(subtotal));
+      items.push({name:products[i].name,quantity:q,unit_price:products[i].price,subtotal:subtotal});
+    }
+  }
+  if(!items.length){
+    alert("Agregá al menos un producto al pedido.");
+    return null;
+  }
+  return {name,address,phone,payment:paymentEl.value,items,lines,total};
 }
+
+async function sendOrderDirect(){
+  const order=collectOrder();
+  if(!order)return;
+
+  const button=document.getElementById("sendFresh");
+  if(button){
+    button.disabled=true;
+    button.textContent="⏳ Enviando pedido…";
+  }
+
+  const customerNumber=normalizeWhatsApp(order.phone);
+  const msg=[
+    "🌱 *NUEVO PEDIDO — MANOS VERDES*","",
+    "👤 Cliente: "+order.name,
+    "📍 Dirección: "+order.address,
+    "📱 WhatsApp: "+order.phone,
+    "🔗 Contactar al cliente: https://wa.me/"+customerNumber,"",
+    "🛒 *Pedido:*"
+  ].concat(order.lines,[
+    "","💰 *Total: "+money(order.total)+"*",
+    "💳 Medio de pago: "+order.payment,
+    "","🚚 Reparto: "+getNextSaturdayLabel()
+  ]).join("\n");
+
+  let saved=false;
+  const client=getSupabase();
+  if(client){
+    try{
+      const reparto=await client.from("repartos")
+        .select("id,delivery_date")
+        .eq("is_open",true)
+        .order("created_at",{ascending:false})
+        .limit(1)
+        .maybeSingle();
+
+      if(!reparto.error && reparto.data){
+        const inserted=await client.from("pedidos").insert({
+          reparto_id:reparto.data.id,
+          customer_name:order.name,
+          address:order.address,
+          phone:order.phone,
+          payment_method:order.payment,
+          items:order.items,
+          total:order.total
+        });
+        saved=!inserted.error;
+      }
+    }catch(e){
+      console.error("Error guardando pedido:",e);
+    }
+  }
+
+  if(!saved && client){
+    alert("No se pudo guardar el pedido en el sistema. Revisá tu conexión e intentá nuevamente.");
+    if(button){
+      button.disabled=false;
+      button.textContent="📲 Enviar pedido";
+    }
+    return;
+  }
+
+  window.location.href="https://wa.me/"+CONFIG.whatsappNumber.replace(/\D/g,"")+"?text="+encodeURIComponent(msg);
+}
+
+function render(){
+  const box=document.getElementById("products");
+  if(!box)return;
+  box.innerHTML="";
+  products.forEach((p,i)=>{
+    const item=document.createElement("div");
+    item.className="product";
+    const info=document.createElement("div");
+    const name=document.createElement("strong");
+    name.textContent=p.name;
+    const small=document.createElement("small");
+    small.textContent=p.detail+" · "+money(p.price);
+    info.appendChild(name);
+    info.appendChild(small);
+
+    const qty=document.createElement("div");
+    qty.className="qty";
+    const minus=document.createElement("button");
+    minus.type="button";
+    minus.textContent="−";
+    minus.onclick=()=>change(i,-1);
+    const count=document.createElement("span");
+    count.id="qty-"+i;
+    count.textContent="0";
+    const plus=document.createElement("button");
+    plus.type="button";
+    plus.textContent="+";
+    plus.onclick=()=>change(i,1);
+    qty.appendChild(minus);
+    qty.appendChild(count);
+    qty.appendChild(plus);
+
+    item.appendChild(info);
+    item.appendChild(qty);
+    box.appendChild(item);
+  });
+  update();
+}
+
 async function refreshRepartoStatus(){
-  var client=getSupabase();
+  const client=getSupabase();
   if(!client)return;
-  var result=await client.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle();
-  var closed=!result.data;
-  var status=document.getElementById("statusText");
-  var formCards=document.querySelectorAll(".card");
-  if(closed){
-    status.textContent="La lista de pedidos para este sábado se encuentra cerrada. Mil disculpas";
-    document.getElementById("deliveryDate").textContent="";
-    formCards.forEach(function(card){card.style.display="none"});
-  }else{
-    status.textContent="Hacé tu pedido para el próximo reparto.";
-    formCards.forEach(function(card){card.style.display=""});
-    updateDeliveryDate();
+  try{
+    const result=await client.from("repartos").select("id,delivery_date")
+      .eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle();
+    const closed=!result.data;
+    const status=document.getElementById("statusText");
+    const formCards=document.querySelectorAll(".card");
+    if(closed){
+      if(status)status.textContent="La lista de pedidos para este sábado se encuentra cerrada. Mil disculpas";
+      const date=document.getElementById("deliveryDate");
+      if(date)date.textContent="";
+      formCards.forEach(card=>card.style.display="none");
+    }else{
+      if(status)status.textContent="Hacé tu pedido para el próximo reparto.";
+      formCards.forEach(card=>card.style.display="");
+      const date=document.getElementById("deliveryDate");
+      if(date)date.textContent=getNextSaturdayLabel();
+    }
+  }catch(e){
+    console.error(e);
   }
 }
-render();
-updateDeliveryDate();
-refreshRepartoStatus();
+
+document.addEventListener("DOMContentLoaded",()=>{
+  render();
+  const button=document.getElementById("sendFresh");
+  if(button){
+    button.onclick=sendOrderDirect;
+    button.removeAttribute("onclick");
+  }
+  ["name","address","phone"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.addEventListener("input",update);
+  });
+  document.querySelectorAll('input[name="payment"]').forEach(x=>x.addEventListener("change",update));
+  refreshRepartoStatus();
+});
 </script>
-<!-- Publicación forzada -->
+<!-- Publicación forzada: formulario corregido 2026-09-28 -->
 </body></html>
