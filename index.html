@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#2e7d32"><title>Pedidos | Manos Verdes</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--g:#2e7d32;--g2:#43a047;--bg:#f7f4e8;--ink:#203020;--muted:#657065;--line:#dfe7df}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#eef7ed,#fff 45%);color:var(--ink)}
@@ -17,7 +18,7 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 </head>
 <body>
 <div class="wrap">
-<header class="hero"><h1>🌱 Manos Verdes</h1><p>Hacé tu pedido para el próximo reparto.</p><span class="badge">🚚 Entrega gratuita · <span id="deliveryDate">próximo sábado</span></span></header>
+<header class="hero"><h1>🌱 Manos Verdes</h1><p id="statusText">Hacé tu pedido para el próximo reparto.</p><span class="badge">🚚 Entrega gratuita · <span id="deliveryDate">próximo sábado</span></span></header>
 <section class="card"><h2>1. Tus datos</h2>
 <label for="name">Nombre y apellido</label><input class="field" id="name" autocomplete="name" placeholder="Ej.: Juan Pérez">
 <label for="address">Dirección de entrega</label><input class="field" id="address" autocomplete="street-address" placeholder="Calle y número, localidad">
@@ -32,7 +33,8 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 <button class="submit" id="send" disabled>📲 Enviar pedido</button></section>
 </div>
 <script>
-const CONFIG={whatsappNumber:"5492214775865"};
+const CONFIG={whatsappNumber:"5492214775865",supabaseUrl:"https://blnoenkmshrybsqpsvtx.supabase.co",supabaseKey:"sb_publishable_OmZ_iwMzQNUDeyTJXOjBqw_au5UgLN8"};
+const supabase=window.supabase.createClient(CONFIG.supabaseUrl,CONFIG.supabaseKey);
 const products=[
 {name:"Bolsón n°1",price:13000,detail:"Verduras agroecológicas"},
 {name:"Bolsón n°2",price:12000,detail:"Verduras agroecológicas"},
@@ -59,7 +61,7 @@ function update(){var total=state.reduce(function(s,q,i){return s+q*products[i].
 ["name","address","phone"].forEach(function(id){document.getElementById(id).addEventListener("input",update)});
 document.querySelectorAll('input[name="payment"]').forEach(function(x){x.addEventListener("change",update)});
 function normalizeWhatsApp(raw){
-  var digits=raw.replace(/D/g,"");
+  var digits=raw.replace(/\D/g,"");
   if(digits.indexOf("54")===0)return digits;
   if(digits.indexOf("0")===0)digits=digits.slice(1);
   if(digits.indexOf("15")===0)digits=digits.slice(2);
@@ -84,8 +86,36 @@ document.getElementById("send").addEventListener("click",function(){
   var customerNumber=normalizeWhatsApp(phone);
   var customerLink="https://wa.me/"+customerNumber;
   var msg=["🌱 *NUEVO PEDIDO — MANOS VERDES*","", "👤 Cliente: "+name,"📍 Dirección: "+address,"📱 WhatsApp: "+phone,"🔗 Contactar al cliente: "+customerLink,"","🛒 *Pedido:*"].concat(lines,["","💰 *Total: "+money(total)+"*","💳 Medio de pago: "+payment,"","🚚 Reparto: "+getNextSaturdayLabel()]).join("\n");
-  var number=CONFIG.whatsappNumber.replace(/D/g,"");
-  window.location.href="https://wa.me/"+number+"?text="+encodeURIComponent(msg);
+  var number=CONFIG.whatsappNumber.replace(/\D/g,"");
+  var button=document.getElementById("send");
+  button.disabled=true;
+  button.textContent="⏳ Guardando pedido...";
+  supabase.from("repartos").select("id,delivery_date").eq("is_open",true).order("created_at",{ascending:false}).limit(1).maybeSingle().then(async function(result){
+    if(result.error||!result.data){
+      alert("La lista de pedidos para este sábado se encuentra cerrada. Mil disculpas");
+      button.textContent="📲 Enviar pedido";
+      await refreshRepartoStatus();
+      return;
+    }
+    var items=products.map(function(p,i){return state[i]?{name:p.name,quantity:state[i],unit_price:p.price,subtotal:p.price*state[i]}:null}).filter(Boolean);
+    var insert=await supabase.from("pedidos").insert({
+      reparto_id:result.data.id,
+      customer_name:name,
+      address:address,
+      phone:phone,
+      payment_method:payment,
+      items:items,
+      total:total
+    });
+    if(insert.error){
+      alert("No se pudo guardar el pedido. No se abrió WhatsApp para evitar perderlo.");
+      button.disabled=false;
+      button.textContent="📲 Enviar pedido";
+      return;
+    }
+    window.location.href="https://wa.me/"+number+"?text="+encodeURIComponent(msg);
+  });
+
 });
 render();
 updateDeliveryDate();
