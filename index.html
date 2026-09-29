@@ -141,7 +141,7 @@ async function sendOrderDirect(){
   const button=document.getElementById("sendFresh");
   if(button){
     button.disabled=true;
-    button.textContent="⏳ Enviando pedido…";
+    button.textContent="⏳ Preparando pedido…";
   }
 
   const customerNumber=normalizeWhatsApp(order.phone);
@@ -158,46 +158,44 @@ async function sendOrderDirect(){
     "","🚚 Reparto: "+getNextSaturdayLabel()
   ]).join("\n");
 
-  let saved=false;
+  // WhatsApp es la acción principal: no se bloquea por una falla de Supabase.
+  const waUrl="https://wa.me/"+CONFIG.whatsappNumber.replace(/\D/g,"")+"?text="+encodeURIComponent(msg);
+
   const client=getSupabase();
   if(client){
     try{
-      const reparto=await client.from("repartos")
-        .select("id,delivery_date")
-        .eq("is_open",true)
-        .order("created_at",{ascending:false})
-        .limit(1)
-        .maybeSingle();
+      const reparto=await Promise.race([
+        client.from("repartos")
+          .select("id,delivery_date")
+          .eq("is_open",true)
+          .order("created_at",{ascending:false})
+          .limit(1)
+          .maybeSingle(),
+        new Promise(resolve=>setTimeout(()=>resolve({error:{message:"timeout"},data:null}),3500))
+      ]);
 
       if(!reparto.error && reparto.data){
-        const inserted=await client.from("pedidos").insert({
-          reparto_id:reparto.data.id,
-          customer_name:order.name,
-          address:order.address,
-          phone:order.phone,
-          payment_method:order.payment,
-          items:order.items,
-          total:order.total
-        });
-        saved=!inserted.error;
+        await Promise.race([
+          client.from("pedidos").insert({
+            reparto_id:reparto.data.id,
+            customer_name:order.name,
+            address:order.address,
+            phone:order.phone,
+            payment_method:order.payment,
+            items:order.items,
+            total:order.total
+          }),
+          new Promise(resolve=>setTimeout(()=>resolve({error:{message:"timeout"}}),3500))
+        ]);
       }
     }catch(e){
-      console.error("Error guardando pedido:",e);
+      console.error("No se pudo registrar el pedido en Supabase:",e);
     }
   }
 
-  if(!saved && client){
-    alert("No se pudo guardar el pedido en el sistema. Revisá tu conexión e intentá nuevamente.");
-    if(button){
-      button.disabled=false;
-      button.textContent="📲 Enviar pedido";
-    }
-    return;
-  }
-
-  window.location.href="https://wa.me/"+CONFIG.whatsappNumber.replace(/\D/g,"")+"?text="+encodeURIComponent(msg);
+  // Aunque falle Supabase, el cliente nunca queda bloqueado: se abre WhatsApp.
+  window.location.href=waUrl;
 }
-
 function render(){
   const box=document.getElementById("products");
   if(!box)return;
@@ -277,5 +275,5 @@ document.addEventListener("DOMContentLoaded",()=>{
   refreshRepartoStatus();
 });
 </script>
-<!-- Publicación forzada: formulario corregido 2026-09-28 -->
+<!-- Publicación: revisión integral 2026-09-28 · envío robusto -->
 </body></html>
