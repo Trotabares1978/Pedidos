@@ -30,7 +30,14 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 <label class="pay"><input type="radio" name="payment" value="Efectivo"><span><strong>Efectivo al recibir</strong><small>Pagás cuando recibís tu pedido.</small></span></label>
 <label class="pay"><input type="radio" name="payment" value="Otro"><span><strong>Otro medio de pago</strong><small>Lo coordinamos por WhatsApp.</small></span></label>
 </div><p class="note"><strong>💙 Cuenta DNI:</strong> de lunes a viernes hay una promoción vigente de hasta 20% de reintegro en comercios adheridos, con tope semanal. El beneficio depende de las condiciones del Banco Provincia y de la adhesión del comercio. <a href="https://www.bancoprovincia.com.ar/cuentadni/buscadores/comerciosdebarrio" target="_blank" rel="noopener">Ver condiciones</a>.</p><p class="note">El pedido llegará por WhatsApp con tus datos, productos, total y medio de pago.</p>
-<p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button">📲 Enviar pedido</button></section>
+<p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button">📲 Enviar pedido</button>
+<div id="transferScreen" style="display:none;margin-top:16px;background:#fff;border:1px solid #dfe7df;border-radius:18px;padding:22px;text-align:center;box-shadow:0 6px 20px #183d180b">
+  <div style="font-size:14px;color:#657065;font-weight:700">DATOS PARA LA TRANSFERENCIA</div>
+  <div style="font-size:28px;font-weight:900;letter-spacing:.5px;background:#e8f5e9;border:2px dashed #81c784;border-radius:15px;padding:18px 10px;color:#1b5e20;margin-top:8px">manos.verdes.pagos</div>
+  <p style="font-size:20px;font-weight:900;line-height:1.35;margin:22px 0 8px">📲 Por favor, enviar comprobante</p>
+  <p style="font-size:14px;color:#657065;line-height:1.5">Cuando hayas enviado tu pedido por WhatsApp, volvé a esta página para poder ver los datos de transferencia.</p>
+  <button class="submit" type="button" onclick="sendReceipt()">📲 Enviar comprobante por WhatsApp</button>
+</div></section>
 </div>
 <script>
 const CONFIG={
@@ -179,19 +186,32 @@ async function sendOrderDirect(){
     }catch(e){}
   }
 
-  // Abrimos WhatsApp sin abandonar la página del pedido.
-  // Así, al volver al navegador, podemos llevar al cliente a los datos de transferencia.
-  const opened=window.open(waUrl,"_blank");
-  if(!opened){
-    window.location.href=waUrl;
-    return;
-  }
   if(order.payment==="Transferencia"){
-    setTimeout(()=>{
-      window.location.href="transferencia.html";
-    },1200);
+    try{sessionStorage.setItem("showTransferScreen","1");}catch(e){}
+  }
+  window.location.href=waUrl;
+}
+function showTransferScreen(){
+  try{
+    if(sessionStorage.getItem("showTransferScreen")!=="1")return;
+    sessionStorage.removeItem("showTransferScreen");
+  }catch(e){return;}
+  const screen=document.getElementById("transferScreen");
+  if(screen){
+    document.querySelectorAll(".card").forEach(card=>card.style.display="none");
+    screen.style.display="block";
+    screen.scrollIntoView({behavior:"smooth",block:"start"});
   }
 }
+function sendReceipt(){
+  const text="🌱 *MANOS VERDES — COMPROBANTE DE TRANSFERENCIA*\\n\\nPor favor, adjunto el comprobante de la transferencia correspondiente a mi pedido.";
+  window.location.href="https://wa.me/"+CONFIG.whatsappNumber.replace(/\\D/g,"")+"?text="+encodeURIComponent(text);
+}
+window.addEventListener("pageshow",showTransferScreen);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible")showTransferScreen();
+});
+
 function render(){
   const box=document.getElementById("products");
   if(!box)return;
