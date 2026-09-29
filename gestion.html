@@ -165,24 +165,21 @@ async function load(){
   let items=o.items;if(typeof items==="string"){try{items=JSON.parse(items)}catch(e){items={}}}
   let phone=String(o.phone||"").replace(/\D/g,"");
   if(!phone.startsWith("54"))phone="54"+phone.replace(/^0/,"").replace(/^15/,"");
-  const products=Object.entries(items||{}).map(([n,v])=>"<div>"+esc(n)+" × "+esc(v)+"</div>").join("");
+  const products=Array.isArray(items)?items.map(it=>"<div>"+esc(it.name)+" × "+esc(it.quantity)+"</div>").join(""):Object.entries(items||{}).map(([n,v])=>"<div>"+esc(n)+" × "+esc(v)+"</div>").join("");
   return "<article class='card order'><h3>"+esc(o.customer_name)+"</h3><div>📍 "+esc(o.address)+"</div><div>📲 <a href='https://wa.me/"+phone+"' target='_blank' rel='noopener'>"+esc(o.phone)+"</a></div><div class='order-products'>"+products+"</div><div>💳 "+esc(o.payment_method)+"</div><h3>"+money(o.total)+"</h3><button class='danger deleteOrder' data-id='"+esc(o.id)+"'>❌ Eliminar pedido</button></article>";
  }).join(""):"<p>No hay pedidos.</p>";
  document.querySelectorAll(".deleteOrder").forEach(b=>b.addEventListener("click",()=>deleteOrder(b.dataset.id)));
 }
 
+async function callRpc(name,key,id){const r=await fetch(SUPABASE_URL+"/rest/v1/"+name,{method:"POST",headers:headers(),body:JSON.stringify({[key]:id})});if(!r.ok)throw Error(await r.text())}
 async function deleteOrder(id){
  if(!confirm("¿Eliminar este pedido? Esta acción no se puede deshacer."))return;
- const r=await fetch(SUPABASE_URL+"/rest/v1/pedidos?id=eq."+encodeURIComponent(id),{method:"DELETE",headers:headers()});
- if(!r.ok){alert("No se pudo eliminar el pedido:\n"+await r.text());return}
- await load();
+ try{await callRpc("eliminar_pedido_admin","p_pedido_id",id);await load()}catch(e){alert("No se pudo eliminar el pedido:\n"+e.message)}
 }
 
 async function closeReparto(){
  if(!confirm("¿Cerrar el reparto semanal? Los clientes ya no podrán hacer nuevos pedidos."))return;
- const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?is_open=eq.true",{method:"PATCH",headers:{...headers(),Prefer:"return=minimal"},body:JSON.stringify({is_open:false,closed_at:new Date().toISOString()})});
- if(!r.ok){$("actionMsg").textContent="No se pudo cerrar el reparto: "+await r.text();return}
- location.reload();
+ try{const rep=await getOpenReparto();if(!rep)return;await callRpc("cerrar_reparto_admin","p_reparto_id",rep.id);await load()}catch(e){$("actionMsg").textContent="No se pudo cerrar el reparto: "+e.message}
 }
 
 async function reopenReparto(){
