@@ -117,6 +117,7 @@ function showApp(){ $("loginBox").hidden=true; $("app").hidden=false }
 function showLogin(){ $("loginBox").hidden=false; $("app").hidden=true }
 
 function addStock(stock,name,qty){
+ if(name==="Huevos comunes x 2"){stock["Huevos comunes"]=(stock["Huevos comunes"]||0)+(qty*2);return}
  if(name==="Promo 1-2-Fruta"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón de frutas",qty);return}
  if(name==="Promo Los 3 de verdura"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón n°3",qty);return}
  if(name==="Promo Los 4 bolsones"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón n°3",qty);addStock(stock,"Bolsón de frutas",qty);return}
