@@ -135,20 +135,29 @@ async function load(){
  if(!(await validSession())){clearToken();showLogin();return}
  showApp();
  $("actionMsg").textContent="";
- const rep=await getOpenReparto();
+ let rep=await getOpenReparto();
+ let cerrado=false;
  if(!rep){
-  $("repartoTitle").textContent="No hay reparto abierto";
-  $("repartoInfo").textContent="No existe un reparto semanal abierto en este momento.";
+  rep=await latestReparto();
+  if(!rep){
+   $("repartoTitle").textContent="No hay reparto";
+   $("repartoInfo").textContent="No existe ningún reparto registrado.";
+   $("closeBtn").hidden=true;$("reopenBtn").hidden=true;
+   $("orderCount").textContent="0";$("grandTotal").textContent="$0";
+   $("stock").innerHTML="<p>No hay reparto para mostrar.</p>";
+   $("orders").innerHTML="<p>No hay pedidos para mostrar.</p>";
+   return;
+  }
+  cerrado=true;
+  $("repartoTitle").textContent="Reparto cerrado";
+  $("repartoInfo").textContent="Pedidos registrados hasta el momento del cierre · "+new Date(rep.delivery_date+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   $("closeBtn").hidden=true;$("reopenBtn").hidden=false;
-  $("orderCount").textContent="0";$("grandTotal").textContent="$0";
-  $("stock").innerHTML="<p>No hay reparto abierto.</p>";
-  $("orders").innerHTML="<p>No hay pedidos para mostrar.</p>";
-  const last=await latestReparto(); $("reopenBtn").dataset.id=last?last.id:"";
-  return;
+  $("reopenBtn").dataset.id=rep.id;
+ }else{
+  $("closeBtn").hidden=false;$("reopenBtn").hidden=true;
+  $("repartoTitle").textContent="Reparto del sábado";
+  $("repartoInfo").textContent=new Date(rep.delivery_date+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
  }
- $("closeBtn").hidden=false;$("reopenBtn").hidden=true;
- $("repartoTitle").textContent="Reparto del sábado";
- $("repartoInfo").textContent=new Date(rep.delivery_date+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
  const q=await fetch(SUPABASE_URL+"/rest/v1/pedidos?select=*&reparto_id=eq."+encodeURIComponent(rep.id)+"&order=created_at.desc",{headers:headers()});
  if(!q.ok)throw Error("No se pudieron cargar los pedidos: "+await q.text());
  const orders=await q.json();
@@ -210,7 +219,6 @@ async function closeReparto(){
 $("loginForm").addEventListener("submit",login);
 $("logoutBtn").addEventListener("click",()=>{clearToken();location.reload()});
 $("closeBtn").addEventListener("click",closeReparto);$("reopenBtn").addEventListener("click",reopenReparto);
-$("reopenBtn").addEventListener("click",reopenReparto);
 validSession().then(ok=>{if(ok)load()});
 })();
 </script>
