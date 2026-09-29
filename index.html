@@ -179,8 +179,18 @@ async function sendOrderDirect(){
     }catch(e){}
   }
 
-  // Primero enviamos el pedido a WhatsApp.
-  window.location.href=waUrl;
+  // Abrimos WhatsApp sin abandonar la página del pedido.
+  // Así, al volver al navegador, podemos llevar al cliente a los datos de transferencia.
+  const opened=window.open(waUrl,"_blank");
+  if(!opened){
+    window.location.href=waUrl;
+    return;
+  }
+  if(order.payment==="Transferencia"){
+    setTimeout(()=>{
+      window.location.href="transferencia.html";
+    },1200);
+  }
 }
 function render(){
   const box=document.getElementById("products");
@@ -245,15 +255,6 @@ async function refreshRepartoStatus(){
     console.error(e);
   }
 }
-
-window.addEventListener("pageshow",()=>{
-  try{
-    if(sessionStorage.getItem("showTransferAfterWhatsApp")==="1"){
-      sessionStorage.removeItem("showTransferAfterWhatsApp");
-      window.location.href="transferencia.html";
-    }
-  }catch(e){}
-});
 
 document.addEventListener("DOMContentLoaded",()=>{
   render();
