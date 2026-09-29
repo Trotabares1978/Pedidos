@@ -1,71 +1,200 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Manos Verdes · Gestión</title><style>body{font-family:system-ui;margin:0;background:#f3f7f1;color:#18351f}header{background:#185c2a;color:white;padding:20px}main{max-width:1100px;margin:auto;padding:16px}.card{background:white;padding:18px;border-radius:16px;margin:14px 0;box-shadow:0 3px 12px #0001}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.stat{font-size:26px;font-weight:800}input,button{padding:11px;margin:4px;border-radius:10px}button{background:#185c2a;color:white;border:0;font-weight:bold}.danger{background:#b3261e}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}a{color:#176b35;font-weight:bold}</style></head><body><header><h1>🌱 Manos Verdes · Gestión</h1></header><main><div id="login" class="card"><h2>Acceso privado</h2><input id="email" type="email" placeholder="Correo"><br><input id="password" type="password" placeholder="Contraseña"><br><label><input id="remember" type="checkbox"> Mantener sesión iniciada</label><br><button type="button" id="loginButton">Ingresar</button><p id="msg"></p></div><div id="panel" hidden><div class="card"><button onclick="logout()">Cerrar sesión</button><h2 id="reparto">Reparto semanal</h2><button onclick="cerrar()">Cerrar reparto semanal</button></div><div class="grid"><div class="card">Pedidos<div id="cantidad" class="stat">0</div></div><div class="card">Total<div id="total" class="stat">$0</div></div></div><div class="card"><h2>🥬 Preparación</h2><div id="stock">Cargando...</div></div><div class="card"><h2>📋 Pedidos</h2><div id="pedidos">Cargando...</div></div></div></main><script>
-const URL="https://blnoenkmshrybsqpsvtx.supabase.co";
-const KEY="sb_publishable_OmZ_iwMzQNUDeyTJXOjBqw_au5UgLN8";
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manos Verdes · Gestión</title>
+<style>
+body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f2f6f0;color:#18351f}
+header{background:#185c2a;color:#fff;padding:18px}
+main{max-width:1050px;margin:auto;padding:16px}
+.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 14px #0001}
+h1,h2,h3{margin-top:0}
+input,button{font:inherit;padding:12px;border-radius:10px}
+input{border:1px solid #bbb;box-sizing:border-box;width:min(100%,420px);margin:5px 0}
+button{border:0;background:#185c2a;color:#fff;font-weight:700;margin:5px 0;cursor:pointer}
+button.danger{background:#b3261e}
+button.secondary{background:#555}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.stat{font-size:30px;font-weight:800}
+.stock{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.stock .card{margin:0;text-align:center}
+.order{border-left:5px solid #185c2a}
+.order-products{margin:12px 0}
+.muted{color:#667}
+.msg{white-space:pre-wrap}
+a{color:#176b35;font-weight:700}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><h1>🌱 Manos Verdes · Gestión</h1></header>
+<main>
+
+<section id="loginBox" class="card">
+<h2>Acceso privado</h2>
+<form id="loginForm">
+<input id="email" type="email" autocomplete="username" placeholder="Correo" required><br>
+<input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required><br>
+<label><input id="remember" type="checkbox" style="width:auto"> Mantener sesión iniciada</label><br>
+<button type="submit">Ingresar</button>
+</form>
+<p id="loginMsg" class="msg muted"></p>
+</section>
+
+<section id="app" hidden>
+<div class="card">
+<button id="logoutBtn" class="secondary">Cerrar sesión</button>
+<h2 id="repartoTitle">Reparto semanal</h2>
+<p id="repartoInfo" class="muted"></p>
+<button id="closeBtn">🔒 Cerrar reparto semanal</button>
+<button id="reopenBtn" hidden>🔓 Volver a abrir reparto</button>
+<p id="actionMsg" class="msg"></p>
+</div>
+
+<div class="grid">
+<div class="card">Pedidos<div id="orderCount" class="stat">0</div></div>
+<div class="card">Total<div id="grandTotal" class="stat">$0</div></div>
+</div>
+
+<div class="card">
+<h2>🥬 Preparación</h2>
+<div id="stock" class="stock">Cargando…</div>
+</div>
+
+<div class="card">
+<h2>📋 Pedidos</h2>
+<div id="orders">Cargando…</div>
+</div>
+</section>
+
+</main>
+<script>
+(function(){
+const SUPABASE_URL="https://blnoenkmshrybsqpsvtx.supabase.co";
+const SUPABASE_KEY="sb_publishable_OmZ_iwMzQNUDeyTJXOjBqw_au5UgLN8";
+const ADMIN_EMAIL="";
+
 const $=id=>document.getElementById(id);
-function token(){return localStorage.getItem("mv_access")||sessionStorage.getItem("mv_access")}
-function H(){return{apikey:KEY,Authorization:"Bearer "+token(),"Content-Type":"application/json"}}
-function money(n){return "$"+Number(n||0).toLocaleString("es-AR")}
-function esc(x){return String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-async function doLogin(){
- const status=$("msg"); status.textContent="Ingresando…";
+const token=()=>localStorage.getItem("mv_access")||sessionStorage.getItem("mv_access");
+const headers=()=>({apikey:SUPABASE_KEY,Authorization:"Bearer "+token(),"Content-Type":"application/json"});
+const money=n=>"$"+Number(n||0).toLocaleString("es-AR");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function saveToken(t){
+ if($("remember").checked){localStorage.setItem("mv_access",t);sessionStorage.removeItem("mv_access")}
+ else{sessionStorage.setItem("mv_access",t);localStorage.removeItem("mv_access")}
+}
+
+function clearToken(){localStorage.removeItem("mv_access");sessionStorage.removeItem("mv_access")}
+
+async function login(e){
+ e.preventDefault();
+ $("loginMsg").textContent="Ingresando…";
  try{
-  const r=await fetch(URL+"/auth/v1/token?grant_type=password",{method:"POST",headers:{apikey:KEY,"Content-Type":"application/json"},body:JSON.stringify({email:$("email").value.trim(),password:$("password").value})});
-  if(!r.ok){status.textContent="No se pudo iniciar sesión: "+await r.text();return}
-  const s=await r.json();
-  if($("remember").checked){localStorage.setItem("mv_access",s.access_token);sessionStorage.removeItem("mv_access")}
-  else{sessionStorage.setItem("mv_access",s.access_token);localStorage.removeItem("mv_access")}
-  await show();
- }catch(e){status.textContent="Error de conexión: "+e.message}
+  const r=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password",{
+   method:"POST",headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},
+   body:JSON.stringify({email:$("email").value.trim(),password:$("password").value})
+  });
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok){$("loginMsg").textContent="No se pudo iniciar sesión: "+(data.error_description||data.msg||"credenciales incorrectas");return}
+  saveToken(data.access_token);
+  $("loginMsg").textContent="";
+  await load();
+ }catch(err){$("loginMsg").textContent="Error de conexión: "+err.message}
 }
-function logout(){localStorage.removeItem("mv_access");sessionStorage.removeItem("mv_access");location.reload()}
-function promoStock(st,n,q){
- const add=(k,v)=>st[k]=(st[k]||0)+v;
- if(n==="Promo 1-2-Fruta"){add("Bolsón n°1",q);add("Bolsón n°2",q);add("Bolsón de frutas",q)}
- else if(n==="Promo Los 3 de verdura"){add("Bolsón n°1",q);add("Bolsón n°2",q);add("Bolsón n°3",q)}
- else if(n==="Promo Los 4 bolsones"){add("Bolsón n°1",q);add("Bolsón n°2",q);add("Bolsón n°3",q);add("Bolsón de frutas",q)}
- else add(n,q)
+
+async function validSession(){
+ const t=token();
+ if(!t)return false;
+ try{
+  const r=await fetch(SUPABASE_URL+"/auth/v1/user",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+t},cache:"no-store"});
+  return r.ok;
+ }catch(e){return false}
 }
-async function show(){
- $("login").hidden=true;$("panel").hidden=false;
- const r=await fetch(URL+"/rest/v1/repartos?select=*&is_open=eq.true&order=delivery_date.asc&limit=1",{headers:H()});
+
+function showApp(){ $("loginBox").hidden=true; $("app").hidden=false }
+function showLogin(){ $("loginBox").hidden=false; $("app").hidden=true }
+
+function addStock(stock,name,qty){
+ if(name==="Promo 1-2-Fruta"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón de frutas",qty);return}
+ if(name==="Promo Los 3 de verdura"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón n°3",qty);return}
+ if(name==="Promo Los 4 bolsones"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón n°3",qty);addStock(stock,"Bolsón de frutas",qty);return}
+ stock[name]=(stock[name]||0)+qty;
+}
+
+async function getOpenReparto(){
+ const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?select=*&is_open=eq.true&order=delivery_date.asc&limit=1",{headers:headers()});
  if(!r.ok)throw Error("No se pudo consultar el reparto: "+await r.text());
  const a=await r.json();
- if(!a.length){$("reparto").textContent="No hay reparto abierto";$("cantidad").textContent="0";$("total").textContent="$0";$("stock").textContent="Sin reparto abierto.";$("pedidos").textContent="No hay pedidos.";return}
- const rep=a[0];
- $("reparto").textContent="Reparto del sábado "+new Date(rep.delivery_date+"T12:00:00").toLocaleDateString("es-AR");
- const q=await fetch(URL+"/rest/v1/pedidos?select=*&reparto_id=eq."+rep.id+"&order=created_at.desc",{headers:H()});
- if(!q.ok)throw Error("No se pudieron cargar los pedidos: "+await q.text());
- const os=await q.json();
- $("cantidad").textContent=os.length;$("total").textContent=money(os.reduce((s,o)=>s+Number(o.total||0),0));
- const st={};
- os.forEach(o=>{const x=typeof o.items==="string"?JSON.parse(o.items):o.items;Object.entries(x||{}).forEach(([k,v])=>promoStock(st,k,Number(v)||0))});
- $("stock").innerHTML=Object.entries(st).map(([k,v])=>"<div class='card' style='display:inline-block;min-width:150px;margin:5px'><b>"+esc(k)+"</b><div class='stat'>"+v+"</div></div>").join("")||"Sin pedidos.";
- $("pedidos").innerHTML=os.length?os.map(o=>{
-  const x=typeof o.items==="string"?JSON.parse(o.items):o.items;
-  let d=String(o.phone||"").replace(/\D/g,"");if(!d.startsWith("54"))d="54"+d.replace(/^0/,"").replace(/^15/,"");
-  return "<div class='card'><h3>"+esc(o.customer_name)+"</h3><div>📍 "+esc(o.address)+"</div><div>📲 <a target='_blank' href='https://wa.me/"+d+"'>"+esc(o.phone)+"</a></div><div style='margin:10px 0'>"+Object.entries(x||{}).map(([k,v])=>"<div>"+esc(k)+" × "+v+"</div>").join("")+"</div><div>💳 "+esc(o.payment_method)+"</div><h3>"+money(o.total)+"</h3><button class='danger' onclick='eliminarPedido(""+o.id+"")'>❌ Eliminar pedido</button></div>"
- }).join(""):"No hay pedidos.";
+ return a[0]||null;
 }
-async function cerrar(){
- if(!confirm("¿Cerrar el reparto semanal?"))return;
- const r=await fetch(URL+"/rest/v1/repartos?is_open=eq.true",{method:"PATCH",headers:{...H(),"Prefer":"return=minimal"},body:JSON.stringify({is_open:false,closed_at:new Date().toISOString()})});
- if(!r.ok){alert("No se pudo cerrar: "+await r.text());return}
+
+async function load(){
+ if(!(await validSession())){clearToken();showLogin();return}
+ showApp();
+ $("actionMsg").textContent="";
+ const rep=await getOpenReparto();
+ if(!rep){
+  $("repartoTitle").textContent="No hay reparto abierto";
+  $("repartoInfo").textContent="No existe un reparto semanal abierto en este momento.";
+  $("closeBtn").hidden=true;$("reopenBtn").hidden=false;
+  $("orderCount").textContent="0";$("grandTotal").textContent="$0";
+  $("stock").innerHTML="<p>No hay reparto abierto.</p>";
+  $("orders").innerHTML="<p>No hay pedidos para mostrar.</p>";
+  return;
+ }
+ $("closeBtn").hidden=false;$("reopenBtn").hidden=true;
+ $("repartoTitle").textContent="Reparto del sábado";
+ $("repartoInfo").textContent=new Date(rep.delivery_date+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+ const q=await fetch(SUPABASE_URL+"/rest/v1/pedidos?select=*&reparto_id=eq."+encodeURIComponent(rep.id)+"&order=created_at.desc",{headers:headers()});
+ if(!q.ok)throw Error("No se pudieron cargar los pedidos: "+await q.text());
+ const orders=await q.json();
+ $("orderCount").textContent=orders.length;
+ $("grandTotal").textContent=money(orders.reduce((s,o)=>s+Number(o.total||0),0));
+ const stock={};
+ for(const o of orders){
+  let items=o.items;
+  if(typeof items==="string"){try{items=JSON.parse(items)}catch(e){items={}}}
+  Object.entries(items||{}).forEach(([n,v])=>addStock(stock,n,Number(v)||0));
+ }
+ $("stock").innerHTML=Object.keys(stock).length
+  ?Object.entries(stock).map(([n,v])=>"<div class='card'><b>"+esc(n)+"</b><div class='stat'>"+v+"</div></div>").join("")
+  :"<p>Sin pedidos.</p>";
+ $("orders").innerHTML=orders.length?orders.map(o=>{
+  let items=o.items;if(typeof items==="string"){try{items=JSON.parse(items)}catch(e){items={}}}
+  let phone=String(o.phone||"").replace(/\D/g,"");
+  if(!phone.startsWith("54"))phone="54"+phone.replace(/^0/,"").replace(/^15/,"");
+  const products=Object.entries(items||{}).map(([n,v])=>"<div>"+esc(n)+" × "+esc(v)+"</div>").join("");
+  return "<article class='card order'><h3>"+esc(o.customer_name)+"</h3><div>📍 "+esc(o.address)+"</div><div>📲 <a href='https://wa.me/"+phone+"' target='_blank' rel='noopener'>"+esc(o.phone)+"</a></div><div class='order-products'>"+products+"</div><div>💳 "+esc(o.payment_method)+"</div><h3>"+money(o.total)+"</h3><button class='danger deleteOrder' data-id='"+esc(o.id)+"'>❌ Eliminar pedido</button></article>";
+ }).join(""):"<p>No hay pedidos.</p>";
+ document.querySelectorAll(".deleteOrder").forEach(b=>b.addEventListener("click",()=>deleteOrder(b.dataset.id)));
+}
+
+async function deleteOrder(id){
+ if(!confirm("¿Eliminar este pedido? Esta acción no se puede deshacer."))return;
+ const r=await fetch(SUPABASE_URL+"/rest/v1/pedidos?id=eq."+encodeURIComponent(id),{method:"DELETE",headers:headers()});
+ if(!r.ok){alert("No se pudo eliminar el pedido:\n"+await r.text());return}
+ await load();
+}
+
+async function closeReparto(){
+ if(!confirm("¿Cerrar el reparto semanal? Los clientes ya no podrán hacer nuevos pedidos."))return;
+ const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?is_open=eq.true",{method:"PATCH",headers:{...headers(),Prefer:"return=minimal"},body:JSON.stringify({is_open:false,closed_at:new Date().toISOString()})});
+ if(!r.ok){$("actionMsg").textContent="No se pudo cerrar el reparto: "+await r.text();return}
  location.reload();
 }
-async function eliminarPedido(id){
- if(!confirm("¿Eliminar este pedido? Esta acción no se puede deshacer."))return;
- const r=await fetch(URL+"/rest/v1/pedidos?id=eq."+encodeURIComponent(id),{method:"DELETE",headers:{...H(),"Prefer":"return=minimal"}});
- if(!r.ok){alert("No se pudo eliminar el pedido: "+await r.text());return}
- await show();
+
+async function reopenReparto(){
+ $("actionMsg").textContent="Para reabrir se necesita un reparto abierto en la base de datos.";
 }
-async function validarSesion(){
- const t=token();if(!t)return;
- try{const r=await fetch(URL+"/auth/v1/user",{headers:{apikey:KEY,Authorization:"Bearer "+t},cache:"no-store"});if(r.ok){await show();return}}catch(e){}
- localStorage.removeItem("mv_access");sessionStorage.removeItem("mv_access");
-}
-document.addEventListener("DOMContentLoaded",()=>{
- $("loginButton").addEventListener("click",doLogin);
- $("password").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin()});
- validarSesion();
-});
-</script></body></html>
+
+$("loginForm").addEventListener("submit",login);
+$("logoutBtn").addEventListener("click",()=>{clearToken();location.reload()});
+$("closeBtn").addEventListener("click",closeReparto);
+$("reopenBtn").addEventListener("click",reopenReparto);
+validSession().then(ok=>{if(ok)load()});
+})();
+</script>
+</body>
+</html>
