@@ -59,6 +59,14 @@ a{color:#176b35;font-weight:700}
 </div>
 
 <div class="card">
+<h2>💲 Precios de los productos</h2>
+<p class="muted">Modificá los precios cuando haya aumentos y guardalos. Los nuevos precios se aplicarán a la página de pedidos.</p>
+<div id="prices">Cargando precios…</div>
+<button id="savePrices">💾 Guardar precios</button>
+<p id="priceMsg" class="msg"></p>
+</div>
+
+<div class="card">
 <h2>🥬 Preparación</h2>
 <div id="stock" class="stock">Cargando…</div>
 </div>
@@ -117,6 +125,26 @@ async function validSession(){
 function showApp(){ $("loginBox").hidden=true; $("app").hidden=false }
 function showLogin(){ $("loginBox").hidden=false; $("app").hidden=true }
 
+async function loadPricesAdmin(){
+ const r=await fetch(SUPABASE_URL+"/rest/v1/precios_productos?select=product_name,price&order=product_name.asc",{headers:headers(),cache:"no-store"});
+ if(!r.ok)throw Error("No se pudieron cargar los precios: "+await r.text());
+ const rows=await r.json();
+ $("prices").innerHTML=rows.map(p=>"<div style='display:flex;align-items:center;gap:10px;margin:8px 0'><div style='flex:1'><b>"+esc(p.product_name)+"</b></div><input class='priceInput' data-name='"+esc(p.product_name)+"' type='number' min='0' step='100' value='"+Number(p.price)+"' style='width:150px;margin:0'><span>$</span></div>").join("");
+}
+async function savePrices(){
+ const inputs=[...document.querySelectorAll(".priceInput")];
+ try{
+  $("savePrices").disabled=true;$("priceMsg").textContent="Guardando precios…";
+  for(const input of inputs){
+   const price=Number(input.value);
+   if(!Number.isFinite(price)||price<0)throw Error("Hay un precio inválido.");
+   const r=await fetch(SUPABASE_URL+"/rest/v1/precios_productos?product_name=eq."+encodeURIComponent(input.dataset.name),{method:"PATCH",headers:{...headers(),"Prefer":"return=minimal"},body:JSON.stringify({price:Math.round(price),updated_at:new Date().toISOString()})});
+   if(!r.ok)throw Error(await r.text());
+  }
+  $("priceMsg").textContent="✅ Precios guardados correctamente.";
+ }catch(e){$("priceMsg").textContent="❌ No se pudieron guardar los precios: "+e.message}
+ finally{$("savePrices").disabled=false}
+}
 function addStock(stock,name,qty){
  if(name==="Huevos comunes x 2"){stock["Huevos comunes"]=(stock["Huevos comunes"]||0)+(qty*2);return}
  if(name==="Promo 1-2-Fruta"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón de frutas",qty);return}
@@ -137,6 +165,7 @@ async function load(){
  if(!(await validSession())){clearToken();showLogin();return}
  showApp();
  $("actionMsg").textContent="";
+ try{await loadPricesAdmin()}catch(e){$("prices").textContent=e.message}
  let rep=await getOpenReparto();
  let cerrado=false;
  if(!rep){
@@ -220,7 +249,7 @@ async function closeReparto(){
 
 $("loginForm").addEventListener("submit",login);
 $("logoutBtn").addEventListener("click",()=>{clearToken();location.reload()});
-$("closeBtn").addEventListener("click",closeReparto);$("reopenBtn").addEventListener("click",reopenReparto);
+$("closeBtn").addEventListener("click",closeReparto);$("reopenBtn").addEventListener("click",reopenReparto);$("savePrices").addEventListener("click",savePrices);
 $("reminderBtn").addEventListener("click",()=>{
  const msg = `🥬 MANOS VERDES 🌱
 
