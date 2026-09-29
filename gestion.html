@@ -45,6 +45,7 @@ a{color:#176b35;font-weight:700}
 <section id="app" hidden>
 <div class="card">
 <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+<button id="reminderBtn">📣 Recordatorio de pedidos</button>
 <h2 id="repartoTitle">Reparto semanal</h2>
 <p id="repartoInfo" class="muted"></p>
 <button id="closeBtn">🔒 Cerrar reparto semanal</button>
@@ -220,6 +221,20 @@ async function closeReparto(){
 $("loginForm").addEventListener("submit",login);
 $("logoutBtn").addEventListener("click",()=>{clearToken();location.reload()});
 $("closeBtn").addEventListener("click",closeReparto);$("reopenBtn").addEventListener("click",reopenReparto);
+$("reminderBtn").addEventListener("click",()=>{
+ const msg = `🥬 MANOS VERDES 🌱
+
+📣 ¡Último día para hacer tu pedido!
+
+Hoy viernes cerramos los pedidos para la entrega de mañana sábado.
+
+👉 https://trotabares1978.github.io/Pedidos/
+
+¡No te olvides de hacer tu pedido!
+
+Muchas gracias 💚`;
+ window.location.href = "https://wa.me/?text="+encodeURIComponent(msg);
+});
 validSession().then(ok=>{if(ok)load()});
 })();
 </script>
