@@ -173,16 +173,24 @@ async function load(){
  document.querySelectorAll(".deleteOrder").forEach(b=>b.addEventListener("click",()=>deleteOrder(b.dataset.id)));
 }
 
-async function callRpc(name,key,id){const r=await fetch(SUPABASE_URL+"/rest/v1/"+name,{method:"POST",headers:headers(),body:JSON.stringify({[key]:id})});if(!r.ok)throw Error(await r.text())}
 async function deleteOrder(id){
  if(!confirm("¿Eliminar este pedido? Esta acción no se puede deshacer."))return;
- try{await callRpc("eliminar_pedido_admin","p_pedido_id",id);await load()}catch(e){alert("No se pudo eliminar el pedido:\n"+e.message)}
+ try{
+  const r=await fetch(SUPABASE_URL+"/rest/v1/pedidos?id=eq."+encodeURIComponent(id),{method:"DELETE",headers:headers()});
+  if(!r.ok)throw Error(await r.text());
+  await load();
+ }catch(e){alert("No se pudo eliminar el pedido:\n"+e.message)}
 }
 
 async function reopenReparto(){const id=$("reopenBtn").dataset.id;if(!id)return;if(!confirm("¿Volver a abrir este reparto?"))return;try{await callRpc("abrir_reparto_admin","p_reparto_id",id);await load()}catch(e){$("actionMsg").textContent="No se pudo abrir el reparto: "+e.message}}
 async function closeReparto(){
  if(!confirm("¿Cerrar el reparto semanal? Los clientes ya no podrán hacer nuevos pedidos."))return;
- try{const rep=await getOpenReparto();if(!rep)return;await callRpc("cerrar_reparto_admin","p_reparto_id",rep.id);await load()}catch(e){$("actionMsg").textContent="No se pudo cerrar el reparto: "+e.message}
+ try{
+  const rep=await getOpenReparto();if(!rep)return;
+  const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?id=eq."+encodeURIComponent(rep.id),{method:"PATCH",headers:{...headers(),Prefer:"return=minimal"},body:JSON.stringify({is_open:false,closed_at:new Date().toISOString()})});
+  if(!r.ok)throw Error(await r.text());
+  await load();
+ }catch(e){$("actionMsg").textContent="No se pudo cerrar el reparto: "+e.message}
 }
 
 $("loginForm").addEventListener("submit",login);
