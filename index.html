@@ -166,7 +166,20 @@ async function sendOrderDirect(){
   // WhatsApp es la acción principal: no se bloquea por una falla de Supabase.
   const waUrl="https://wa.me/"+CONFIG.whatsappNumber.replace(/\D/g,"")+"?text="+encodeURIComponent(msg);
 
-  // Primero enviamos al cliente a WhatsApp. El registro en Supabase no puede bloquear el pedido.
+  // Si eligió transferencia, dejamos preparado el regreso a la pantalla con el alias.
+  if(order.payment==="Transferencia"){
+    try{
+      sessionStorage.setItem("showTransferAfterWhatsApp","1");
+      sessionStorage.setItem("manosVerdesTransferDraft",JSON.stringify({
+        name:order.name,
+        address:order.address,
+        phone:order.phone,
+        total:money(order.total)
+      }));
+    }catch(e){}
+  }
+
+  // Primero enviamos el pedido a WhatsApp.
   window.location.href=waUrl;
 }
 function render(){
@@ -232,6 +245,15 @@ async function refreshRepartoStatus(){
     console.error(e);
   }
 }
+
+window.addEventListener("pageshow",()=>{
+  try{
+    if(sessionStorage.getItem("showTransferAfterWhatsApp")==="1"){
+      sessionStorage.removeItem("showTransferAfterWhatsApp");
+      window.location.href="transferencia.html";
+    }
+  }catch(e){}
+});
 
 document.addEventListener("DOMContentLoaded",()=>{
   render();
