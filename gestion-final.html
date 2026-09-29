@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manos Verdes · Gestión</title>
+<style>
+body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f2f6f0;color:#18351f}
+header{background:#185c2a;color:#fff;padding:18px}
+main{max-width:1050px;margin:auto;padding:16px}
+.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 14px #0001}
+h1,h2,h3{margin-top:0}
+input,button{font:inherit;padding:12px;border-radius:10px}
+input{border:1px solid #bbb;box-sizing:border-box;width:min(100%,420px);margin:5px 0}
+button{border:0;background:#185c2a;color:#fff;font-weight:700;margin:5px 0;cursor:pointer}
+button.danger{background:#b3261e}
+button.secondary{background:#555}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.stat{font-size:30px;font-weight:800}
+.stock{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.stock .card{margin:0;text-align:center}
+.order{border-left:5px solid #185c2a}
+.order-products{margin:12px 0}
+.muted{color:#667}
+.msg{white-space:pre-wrap}
+a{color:#176b35;font-weight:700}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><h1>🌱 Manos Verdes · Gestión</h1></header>
+<main>
+
+<section id="loginBox" class="card">
+<h2>Acceso privado</h2>
+<form id="loginForm">
+<input id="email" type="email" autocomplete="username" placeholder="Correo" required><br>
+<input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required><br>
+<label><input id="remember" type="checkbox" style="width:auto"> Mantener sesión iniciada</label><br>
+<button type="submit">Ingresar</button>
+</form>
+<p id="loginMsg" class="msg muted"></p>
+</section>
+
+<section id="app" hidden>
+<div class="card">
+<button id="logoutBtn" class="secondary">Cerrar sesión</button>
+<h2 id="repartoTitle">Reparto semanal</h2>
+<p id="repartoInfo" class="muted"></p>
+<button id="closeBtn">🔒 Cerrar reparto semanal</button>
+<button id="reopenBtn" hidden>🔓 Volver a abrir reparto</button>
+<p id="actionMsg" class="msg"></p>
+</div>
+
+<div class="grid">
+<div class="card">Pedidos<div id="orderCount" class="stat">0</div></div>
+<div class="card">Total<div id="grandTotal" class="stat">$0</div></div>
+</div>
+
+<div class="card">
+<h2>🥬 Preparación</h2>
+<div id="stock" class="stock">Cargando…</div>
+</div>
+
+<div class="card">
+<h2>📋 Pedidos</h2>
+<div id="orders">Cargando…</div>
+</div>
+</section>
+
+</main>
+<script>
+(function(){
+const SUPABASE_URL="https://blnoenkmshrybsqpsvtx.supabase.co";
+const SUPABASE_KEY="sb_publishable_OmZ_iwMzQNUDeyTJXOjBqw_au5UgLN8";
+const ADMIN_EMAIL="";
+
+const $=id=>document.getElementById(id);
+const token=()=>localStorage.getItem("mv_access")||sessionStorage.getItem("mv_access");
+const headers=()=>({apikey:SUPABASE_KEY,Authorization:"Bearer "+token(),"Content-Type":"application/json"});
+const money=n=>"$"+Number(n||0).toLocaleString("es-AR");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function saveToken(t){
+ if($("remember").checked){localStorage.setItem("mv_access",t);sessionStorage.removeItem("mv_access")}
+ else{sessionStorage.setItem("mv_access",t);localStorage.removeItem("mv_access")}
+}
+
+function clearToken(){localStorage.removeItem("mv_access");sessionStorage.removeItem("mv_access")}
+
+async function login(e){
+ e.preventDefault();
+ $("loginMsg").textContent="Ingresando…";
+ try{
+  const r=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password",{
+   method:"POST",headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},
+   body:JSON.stringify({email:$("email").value.trim(),password:$("password").value})
+  });
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok){$("loginMsg").textContent="No se pudo iniciar sesión: "+(data.error_description||data.msg||"credenciales incorrectas");return}
+  saveToken(data.access_token);
+  $("loginMsg").textContent="";
+  await load();
+ }catch(err){$("loginMsg").textContent="Error de conexión: "+err.message}
+}
+
+async function validSession(){
+ const t=token();
+ if(!t)return false;
+ try{
+  const r=await fetch(SUPABASE_URL+"/auth/v1/user",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+t},cache:"no-store"});
+  return r.ok;
+ }catch(e){return false}
+}
+
+function showApp(){ $("loginBox").hidden=true; $("app").hidden=false }
+function showLogin(){ $("loginBox").hidden=false; $("app").hidden=true }
+
+function addStock(stock,name,qty){
+ if(name==="Promo 1-2-Fruta"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón de frutas",qty);return}
+ if(name==="Promo Los 3 de verdura"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón n°3",qty);return}
+ if(name==="Promo Los 4 bolsones"){addStock(stock,"Bolsón n°1",qty);addStock(stock,"Bolsón n°2",qty);addStock(stock,"Bolsón n°3",qty);addStock(stock,"Bolsón de frutas",qty);return}
+ stock[name]=(stock[name]||0)+qty;
+}
+
+async function getOpenReparto(){
+ const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?select=*&is_open=eq.true&order=delivery_date.asc&limit=1",{headers:headers()});
+ if(!r.ok)throw Error("No se pudo consultar el reparto: "+await r.text());
+ const a=await r.json();
+ return a[0]||null;
+}
+
+async function latestReparto(){const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?select=*&order=delivery_date.desc,created_at.desc&limit=1",{headers:headers()});if(!r.ok)throw Error(await r.text());const a=await r.json();return a[0]||null}
+async function load(){
+ if(!(await validSession())){clearToken();showLogin();return}
+ showApp();
+ $("actionMsg").textContent="";
+ const rep=await getOpenReparto();
+ if(!rep){
+  $("repartoTitle").textContent="No hay reparto abierto";
+  $("repartoInfo").textContent="No existe un reparto semanal abierto en este momento.";
+  $("closeBtn").hidden=true;$("reopenBtn").hidden=false;
+  $("orderCount").textContent="0";$("grandTotal").textContent="$0";
+  $("stock").innerHTML="<p>No hay reparto abierto.</p>";
+  $("orders").innerHTML="<p>No hay pedidos para mostrar.</p>";
+  const last=await latestReparto(); $("reopenBtn").dataset.id=last?last.id:"";
+  return;
+ }
+ $("closeBtn").hidden=false;$("reopenBtn").hidden=true;
+ $("repartoTitle").textContent="Reparto del sábado";
+ $("repartoInfo").textContent=new Date(rep.delivery_date+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+ const q=await fetch(SUPABASE_URL+"/rest/v1/pedidos?select=*&reparto_id=eq."+encodeURIComponent(rep.id)+"&order=created_at.desc",{headers:headers()});
+ if(!q.ok)throw Error("No se pudieron cargar los pedidos: "+await q.text());
+ const orders=await q.json();
+ $("orderCount").textContent=orders.length;
+ $("grandTotal").textContent=money(orders.reduce((s,o)=>s+Number(o.total||0),0));
+ const stock={};
+ for(const o of orders){
+  let items=o.items;
+  if(typeof items==="string"){try{items=JSON.parse(items)}catch(e){items={}}}
+  (Array.isArray(items)?items:Object.entries(items||{}).map(([name,quantity])=>({name,quantity}))).forEach(it=>addStock(stock,it.name,Number(it.quantity)||0));
+ }
+ $("stock").innerHTML=Object.keys(stock).length
+  ?Object.entries(stock).map(([n,v])=>"<div class='card'><b>"+esc(n)+"</b><div class='stat'>"+v+"</div></div>").join("")
+  :"<p>Sin pedidos.</p>";
+ $("orders").innerHTML=orders.length?orders.map(o=>{
+  let items=o.items;if(typeof items==="string"){try{items=JSON.parse(items)}catch(e){items={}}}
+  let phone=String(o.phone||"").replace(/\D/g,"");
+  if(!phone.startsWith("54"))phone="54"+phone.replace(/^0/,"").replace(/^15/,"");
+  const products=Array.isArray(items)?items.map(it=>"<div>"+esc(it.name)+" × "+esc(it.quantity)+"</div>").join(""):Object.entries(items||{}).map(([n,v])=>"<div>"+esc(n)+" × "+esc(v)+"</div>").join("");
+  return "<article class='card order'><h3>"+esc(o.customer_name)+"</h3><div>📍 "+esc(o.address)+"</div><div>📲 <a href='https://wa.me/"+phone+"' target='_blank' rel='noopener'>"+esc(o.phone)+"</a></div><div class='order-products'>"+products+"</div><div>💳 "+esc(o.payment_method)+"</div><h3>"+money(o.total)+"</h3><button class='danger deleteOrder' data-id='"+esc(o.id)+"'>❌ Eliminar pedido</button></article>";
+ }).join(""):"<p>No hay pedidos.</p>";
+ document.querySelectorAll(".deleteOrder").forEach(b=>b.addEventListener("click",()=>deleteOrder(b.dataset.id)));
+}
+
+async function deleteOrder(id){
+ if(!confirm("¿Eliminar este pedido? Esta acción no se puede deshacer."))return;
+ try{
+  const r=await fetch(SUPABASE_URL+"/rest/v1/pedidos?id=eq."+encodeURIComponent(id),{method:"DELETE",headers:headers()});
+  if(!r.ok)throw Error(await r.text());
+  await load();
+ }catch(e){alert("No se pudo eliminar el pedido:\n"+e.message)}
+}
+
+async function reopenReparto(){
+ const id=$("reopenBtn").dataset.id;if(!id)return;
+ if(!confirm("¿Volver a abrir este reparto?"))return;
+ try{
+  const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?id=eq."+encodeURIComponent(id),{method:"PATCH",headers:{...headers(),Prefer:"return=minimal"},body:JSON.stringify({is_open:true,closed_at:null})});
+  if(!r.ok)throw Error(await r.text());
+  await load();
+ }catch(e){$("actionMsg").textContent="No se pudo abrir el reparto: "+e.message}
+}
+async function closeReparto(){
+ if(!confirm("¿Cerrar el reparto semanal? Los clientes ya no podrán hacer nuevos pedidos."))return;
+ try{
+  const rep=await getOpenReparto();if(!rep)return;
+  const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?id=eq."+encodeURIComponent(rep.id),{method:"PATCH",headers:{...headers(),Prefer:"return=minimal"},body:JSON.stringify({is_open:false,closed_at:new Date().toISOString()})});
+  if(!r.ok)throw Error(await r.text());
+  await load();
+ }catch(e){$("actionMsg").textContent="No se pudo cerrar el reparto: "+e.message}
+}
+
+$("loginForm").addEventListener("submit",login);
+$("logoutBtn").addEventListener("click",()=>{clearToken();location.reload()});
+$("closeBtn").addEventListener("click",closeReparto);$("reopenBtn").addEventListener("click",reopenReparto);
+$("reopenBtn").addEventListener("click",reopenReparto);
+validSession().then(ok=>{if(ok)load()});
+})();
+</script>
+</body>
+</html>
