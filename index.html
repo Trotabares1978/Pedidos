@@ -232,14 +232,14 @@ function render(){
     const minus=document.createElement("button");
     minus.type="button";
     minus.textContent="−";
-    minus.onclick=()=>change(i,-1);
+    minus.onclick=(e)=>{e.preventDefault();e.stopPropagation();change(i,-1);};
     const count=document.createElement("span");
     count.id="qty-"+i;
     count.textContent="0";
     const plus=document.createElement("button");
     plus.type="button";
     plus.textContent="+";
-    plus.onclick=()=>change(i,1);
+    plus.onclick=(e)=>{e.preventDefault();e.stopPropagation();change(i,1);};
     qty.appendChild(minus);
     qty.appendChild(count);
     qty.appendChild(plus);
