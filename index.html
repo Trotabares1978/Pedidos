@@ -30,7 +30,7 @@ button.submit{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15p
 <label class="pay"><input type="radio" name="payment" value="Efectivo"><span><strong>Efectivo al recibir</strong><small>Pagás cuando recibís tu pedido.</small></span></label>
 <label class="pay"><input type="radio" name="payment" value="Otro"><span><strong>Otro medio de pago</strong><small>Lo coordinamos por WhatsApp.</small></span></label>
 </div><p class="note"><strong>💙 Cuenta DNI:</strong> de lunes a viernes hay una promoción vigente de hasta 20% de reintegro en comercios adheridos, con tope semanal. El beneficio depende de las condiciones del Banco Provincia y de la adhesión del comercio. <a href="https://www.bancoprovincia.com.ar/cuentadni/buscadores/comerciosdebarrio" target="_blank" rel="noopener">Ver condiciones</a>.</p><p class="note">El pedido llegará por WhatsApp con tus datos, productos, total y medio de pago.</p>
-<p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button" onclick="alert('PRUEBA BOTON: FUNCIONA');return false;">📲 PROBAR BOTÓN</button></section>
+<p class="note" style="font-weight:800;text-align:center;margin-top:16px">🔎 Revisá bien tu pedido antes de enviarlo.</p><button class="submit" id="sendFresh" type="button">📲 Enviar pedido</button></section>
 </div>
 <script>
 const CONFIG={
@@ -161,39 +161,7 @@ async function sendOrderDirect(){
   // WhatsApp es la acción principal: no se bloquea por una falla de Supabase.
   const waUrl="https://wa.me/"+CONFIG.whatsappNumber.replace(/\D/g,"")+"?text="+encodeURIComponent(msg);
 
-  const client=getSupabase();
-  if(client){
-    try{
-      const reparto=await Promise.race([
-        client.from("repartos")
-          .select("id,delivery_date")
-          .eq("is_open",true)
-          .order("created_at",{ascending:false})
-          .limit(1)
-          .maybeSingle(),
-        new Promise(resolve=>setTimeout(()=>resolve({error:{message:"timeout"},data:null}),3500))
-      ]);
-
-      if(!reparto.error && reparto.data){
-        await Promise.race([
-          client.from("pedidos").insert({
-            reparto_id:reparto.data.id,
-            customer_name:order.name,
-            address:order.address,
-            phone:order.phone,
-            payment_method:order.payment,
-            items:order.items,
-            total:order.total
-          }),
-          new Promise(resolve=>setTimeout(()=>resolve({error:{message:"timeout"}}),3500))
-        ]);
-      }
-    }catch(e){
-      console.error("No se pudo registrar el pedido en Supabase:",e);
-    }
-  }
-
-  // Aunque falle Supabase, el cliente nunca queda bloqueado: se abre WhatsApp.
+  // Primero enviamos al cliente a WhatsApp. El registro en Supabase no puede bloquear el pedido.
   window.location.href=waUrl;
 }
 function render(){
@@ -263,10 +231,7 @@ async function refreshRepartoStatus(){
 document.addEventListener("DOMContentLoaded",()=>{
   render();
   const button=document.getElementById("sendFresh");
-  if(button){
-    button.onclick=sendOrderDirect;
-    button.removeAttribute("onclick");
-  }
+  if(button) button.addEventListener("click",sendOrderDirect);
   ["name","address","phone"].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.addEventListener("input",update);
@@ -275,5 +240,5 @@ document.addEventListener("DOMContentLoaded",()=>{
   refreshRepartoStatus();
 });
 </script>
-<!-- Publicación: revisión integral 2026-09-28 · envío robusto -->
+<!-- Publicación: código limpio base 2026-09-28 -->
 </body></html>
