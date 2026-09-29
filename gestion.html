@@ -182,7 +182,15 @@ async function deleteOrder(id){
  }catch(e){alert("No se pudo eliminar el pedido:\n"+e.message)}
 }
 
-async function reopenReparto(){const id=$("reopenBtn").dataset.id;if(!id)return;if(!confirm("¿Volver a abrir este reparto?"))return;try{await callRpc("abrir_reparto_admin","p_reparto_id",id);await load()}catch(e){$("actionMsg").textContent="No se pudo abrir el reparto: "+e.message}}
+async function reopenReparto(){
+ const id=$("reopenBtn").dataset.id;if(!id)return;
+ if(!confirm("¿Volver a abrir este reparto?"))return;
+ try{
+  const r=await fetch(SUPABASE_URL+"/rest/v1/repartos?id=eq."+encodeURIComponent(id),{method:"PATCH",headers:{...headers(),Prefer:"return=minimal"},body:JSON.stringify({is_open:true,closed_at:null})});
+  if(!r.ok)throw Error(await r.text());
+  await load();
+ }catch(e){$("actionMsg").textContent="No se pudo abrir el reparto: "+e.message}
+}
 async function closeReparto(){
  if(!confirm("¿Cerrar el reparto semanal? Los clientes ya no podrán hacer nuevos pedidos."))return;
  try{
