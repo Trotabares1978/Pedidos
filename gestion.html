@@ -185,10 +185,6 @@ async function closeReparto(){
  try{const rep=await getOpenReparto();if(!rep)return;await callRpc("cerrar_reparto_admin","p_reparto_id",rep.id);await load()}catch(e){$("actionMsg").textContent="No se pudo cerrar el reparto: "+e.message}
 }
 
-async function reopenReparto(){
- $("actionMsg").textContent="Para reabrir se necesita un reparto abierto en la base de datos.";
-}
-
 $("loginForm").addEventListener("submit",login);
 $("logoutBtn").addEventListener("click",()=>{clearToken();location.reload()});
 $("closeBtn").addEventListener("click",closeReparto);$("reopenBtn").addEventListener("click",reopenReparto);
