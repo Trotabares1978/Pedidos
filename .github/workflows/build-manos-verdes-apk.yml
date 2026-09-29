@@ -8,7 +8,7 @@ on:
       - '.github/workflows/build-manos-verdes-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -31,9 +31,21 @@ jobs:
       - name: Compilar APK
         run: gradle :app:assembleDebug --no-daemon
 
+      - name: Guardar APK directamente en el repositorio
+        run: |
+          mkdir -p downloads
+          cp app/build/outputs/apk/debug/app-debug.apk downloads/Manos-Verdes-Gestion.apk
+
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
           name: Manos-Verdes-Gestion-APK
-          path: app/app/build/outputs/apk/debug/app-debug.apk
+          path: downloads/Manos-Verdes-Gestion.apk
           if-no-files-found: error
+
+      - name: Dejar APK descargable directamente
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: 'downloads/Manos-Verdes-Gestion.apk'
+          message: 'Publicar APK instalable Manos Verdes Gestión'
+          default_author: github_actions
