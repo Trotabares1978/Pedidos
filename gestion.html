@@ -58,8 +58,9 @@ a{color:#176b35;font-weight:700}
 <div class="card">Total<div id="grandTotal" class="stat">$0</div></div>
 </div>
 
-<div class="card">
-<h2>💲 Precios de los productos</h2>
+<button id="productsToggle" type="button">🛒 Productos</button>
+<div id="productsPanel" class="card" hidden>
+<h2>🛒 Productos</h2>
 <p class="muted">Modificá los precios cuando haya aumentos y guardalos. Los nuevos precios se aplicarán a la página de pedidos.</p>
 <div id="prices">Cargando precios…</div>
 <button id="savePrices">💾 Guardar precios</button>
@@ -249,7 +250,7 @@ async function closeReparto(){
 
 $("loginForm").addEventListener("submit",login);
 $("logoutBtn").addEventListener("click",()=>{clearToken();location.reload()});
-$("closeBtn").addEventListener("click",closeReparto);$("reopenBtn").addEventListener("click",reopenReparto);$("savePrices").addEventListener("click",savePrices);
+$("closeBtn").addEventListener("click",closeReparto);$("reopenBtn").addEventListener("click",reopenReparto);$("savePrices").addEventListener("click",savePrices);$("productsToggle").addEventListener("click",()=>{$("productsPanel").hidden=!$("productsPanel").hidden});
 $("reminderBtn").addEventListener("click",()=>{
  const msg = `🥬 MANOS VERDES 🌱
 
